@@ -1,0 +1,12 @@
+PySide6
+zxcvbn
+pycryptodome
+py-diffie-hellman
+requests
+python-dotenv
+numpy
+pydicom
+timm
+torch
+torchvision
+Pillow
