@@ -1,3 +1,6 @@
+<img width="469" height="256" alt="image" src="https://github.com/user-attachments/assets/130683cb-579c-4163-932d-920289312e1a" />
+
+
 # PneuNet
 
 PneuNet is a full-stack **AI-powered pneumonia detection system** designed to analyze chest X-ray images and assist in identifying potential pneumonia cases using deep learning.
