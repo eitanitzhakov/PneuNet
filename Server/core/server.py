@@ -27,7 +27,7 @@ class Server:
         backlog: int = 100,
         timeout_sec: int = 600,
         max_clients: int = 200,
-        weights_path: str = r"C:\Users\eitan\Downloads\best_ft.pth",
+        weights_path: str = r"C:\Users\eitan\PycharmProjects\PneuNet\Server\ai\best (1).pth",
         arch: str = "tf_efficientnet_b4_ns",
         img_size: int = 380,
         device: Optional[str] = None,

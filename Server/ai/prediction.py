@@ -94,3 +94,5 @@ class Predictor:
 
         return Image.fromarray(img8, mode="L").convert("RGB")
 
+
+
