@@ -68,19 +68,12 @@ class DB:
                     request_id TEXT NOT NULL PRIMARY KEY,
                     user_id INTEGER NOT NULL,
                     patient_id TEXT,
-                    patient_id_hash TEXT,
-                    file_hash TEXT,
                     status TEXT DEFAULT 'PENDING',
                     prediction_label TEXT,
                     prediction_confidence REAL,
                     uploaded_at TEXT DEFAULT (datetime('now', 'localtime')),
                     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
                 );
-            """)
-
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_patient_hash
-                ON scans(patient_id_hash);
             """)
 
             conn.commit()
@@ -92,12 +85,6 @@ class DB:
     @staticmethod
     def _calc_password_hash(plain_password: str, salt: str) -> str:
         return hashlib.sha256((plain_password + salt).encode("utf-8")).hexdigest()
-
-    @staticmethod
-    def _simple_hash(data: str) -> Optional[str]:
-        if data is None:
-            return None
-        return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
     @staticmethod
     def _local_now_str() -> str:
@@ -358,18 +345,17 @@ class DB:
             return 0
 
     # Scans
-    def save_new_scan(self, request_id: str, user_id: int, file_hash: str, patient_id: str) -> bool:
-        p_hash = self._simple_hash(patient_id)
+    def save_new_scan(self, request_id: str, user_id: int, patient_id: str) -> bool:
         uploaded_at = self._local_now_str()
 
         try:
             with self._get_conn() as conn:
                 conn.execute(
                     """
-                    INSERT INTO scans (request_id, user_id, file_hash, patient_id, patient_id_hash, status, uploaded_at)
-                    VALUES (?, ?, ?, ?, ?, 'PENDING', ?)
+                    INSERT INTO scans (request_id, user_id, patient_id, status, uploaded_at)
+                    VALUES (?, ?, ?, 'PENDING', ?)
                     """,
-                    (request_id, user_id, file_hash, patient_id, p_hash, uploaded_at)
+                    (request_id, user_id, patient_id, uploaded_at)
                 )
                 conn.commit()
             return True
@@ -415,7 +401,7 @@ class DB:
                 cur = conn.cursor()
                 cur.execute(
                     """
-                    SELECT request_id, patient_id, patient_id_hash, status, prediction_label, uploaded_at
+                    SELECT patient_id, status, prediction_label, prediction_confidence, uploaded_at
                     FROM scans
                     WHERE user_id = ?
                     ORDER BY uploaded_at DESC

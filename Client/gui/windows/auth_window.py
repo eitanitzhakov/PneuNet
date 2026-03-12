@@ -302,7 +302,7 @@ class AuthWindow(ClientWindow):
         self.message_service.show_warning(self, "Login Failed", "Unexpected response from server.")
 
     def _verify_2fa(self, username: str, otp: str):
-        resp = self.client.verify_2fa(username, otp)
+        resp = self.client.verify_2fa(otp)
         if resp.get("type") == "LOGIN_OK":
             return True, "OK"
         if resp.get("type") == "ERROR":
@@ -377,7 +377,7 @@ class AuthWindow(ClientWindow):
         self.message_service.show_warning(self, "Signup Failed", "Unexpected response from server.")
 
     def _verify_email(self, username: str, otp: str):
-        resp = self.client.verify_email(username, otp)
+        resp = self.client.verify_email(otp)
         if resp.get("type") == "EMAIL_VERIFIED_OK":
             return True, "OK"
         if resp.get("type") == "ERROR":

@@ -161,7 +161,7 @@ class Server:
                         secure_protocol.send(client_sock, resp)
 
                     if should_close:
-                        print(f" Closing session for {addr}")
+                        print(f"Closing session for {addr}")
                         break
 
         except Exception as e:
@@ -254,7 +254,6 @@ class Server:
 
                 return {
                     "type": "SIGNUP_VERIFY_REQUIRED",
-                    "user_id": new_uid,
                     "message": "Verification code sent to your email. Please verify to activate the account."
                 }, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
@@ -323,13 +322,9 @@ class Server:
                     return {"type": "ERROR", "message": "Email sender not configured"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 otp_code = (msg.get("otp_code") or "").strip()
-                username = (msg.get("username") or "").strip()
 
                 if not pending_email_verify_user_id or not pending_email_verify_username:
                     return {"type": "ERROR", "message": "No pending email verification. Please SIGNUP or LOGIN again."}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
-
-                if username and username != pending_email_verify_username:
-                    return {"type": "ERROR", "message": "Username mismatch. Please SIGNUP or LOGIN again."}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 if not otp_code:
                     return {"type": "ERROR", "message": "otp_code required"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
@@ -348,11 +343,10 @@ class Server:
                 self.db.clear_otp(pending_email_verify_user_id, self.EMAIL_VERIFY_PURPOSE)
                 self.db.clear_otp(pending_email_verify_user_id, self.LOGIN_2FA_PURPOSE)
 
-                verified_uid = pending_email_verify_user_id
                 pending_email_verify_user_id = None
                 pending_email_verify_username = ""
 
-                return {"type": "EMAIL_VERIFIED_OK", "user_id": verified_uid}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
+                return {"type": "EMAIL_VERIFIED_OK"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
             except Exception as e:
                 return {"type": "ERROR", "message": f"VERIFY_EMAIL exception: {e}"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
@@ -371,7 +365,6 @@ class Server:
                 if not uid:
                     return {"type": "ERROR", "message": "User not found or wrong password"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
-                # ---- NEW: reopen email verification flow on login ----
                 if not self.db.is_email_verified(uid):
                     pending_email_verify_user_id = uid
                     pending_email_verify_username = username
@@ -542,13 +535,9 @@ class Server:
                     return {"type": "ERROR", "message": "2FA unavailable"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 otp_code = (msg.get("otp_code") or "").strip()
-                username = (msg.get("username") or "").strip()
 
                 if not pending_2fa_user_id or not pending_2fa_username:
                     return {"type": "ERROR", "message": "No pending 2FA session. Please LOGIN again."}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
-
-                if username and username != pending_2fa_username:
-                    return {"type": "ERROR", "message": "Username mismatch. Please LOGIN again."}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 if not otp_code:
                     return {"type": "ERROR", "message": "otp_code required"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
@@ -569,7 +558,7 @@ class Server:
                 pending_2fa_user_id = None
                 pending_2fa_username = ""
 
-                return {"type": "LOGIN_OK", "user_id": user_id}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
+                return {"type": "LOGIN_OK"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
             except Exception as e:
                 return {"type": "ERROR", "message": f"VERIFY_2FA exception: {e}"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
@@ -612,7 +601,7 @@ class Server:
                     pass
                 return {"type": "ERROR", "message": "Integrity check failed (SHA mismatch)"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
-            if not self.db.save_new_scan(request_id, user_id, actual_sha, patient_id):
+            if not self.db.save_new_scan(request_id, user_id, patient_id):
                 return {"type": "ERROR", "message": "DB Error saving scan"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
             with self._upload_lock:
@@ -620,10 +609,8 @@ class Server:
 
             return {
                 "type": "UPLOAD_OK",
-                "request_id": request_id,
-                "sha256": actual_sha
+                "request_id": request_id
             }, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
-
         # -------------------------
         # PREDICT
         # -------------------------

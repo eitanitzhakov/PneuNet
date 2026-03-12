@@ -46,13 +46,11 @@ class ResultPanel(QFrame):
             {latency_line}
             <hr>
             <h2 style="color: #222;">Diagnosis: {label}</h2>
-            <p style="font-size: 14px;">Confidence: <b>{conf:.6f}%</b></p>
+            <p style="font-size: 14px;">Confidence: <b>{conf:.8f}%</b></p>
         """
         self.result_box.setHtml(html)
 
     def display_history_item(self, data: dict):
         filtered = dict(data)
-        filtered.pop("request_id", None)
-        filtered.pop("patient_id_hash", None)
         pretty = json.dumps(filtered, indent=2, ensure_ascii=False)
         self.result_box.setPlainText(pretty)

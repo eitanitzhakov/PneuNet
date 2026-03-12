@@ -71,26 +71,28 @@ class Client:
                 try:
                     if self.is_connected and self.secure:
                         try:
-                            print(" Sending CLOSE message to server...")
+                            print("Sending CLOSE message to server...")
                             self.secure.send(self.sock, {"type": "CLOSE"})
                             print("CLOSE message sent")
                         except Exception as e:
-                            print(" Failed sending CLOSE:", e)
+                            print("Failed sending CLOSE:", e)
                     else:
-                        print(" Socket exists but client is not marked as connected/secure")
+                        print("Socket exists but client is not marked as connected/secure")
                 finally:
                     try:
                         self.sock.close()
-                        print(" Socket closed")
+                        print("Socket closed")
                     except Exception as e:
-                        print(" Socket close failed:", e)
+                        print("Socket close failed:", e)
         finally:
             self.sock = None
             self.secure = None
             self.is_connected = False
             print("Client state cleared")
 
-    # ---- secure send/recv unlocked
+    # -------------------------
+    # Secure send/recv
+    # -------------------------
     def _secure_send_unlocked(self, obj: Dict[str, Any]) -> None:
         if not self.secure or not self.sock:
             raise RuntimeError("Secure channel not established")
@@ -113,7 +115,12 @@ class Client:
         """
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked({"type": "SIGNUP", "username": username, "password": password, "email": email})
+            self._secure_send_unlocked({
+                "type": "SIGNUP",
+                "username": username,
+                "password": password,
+                "email": email
+            })
             return self._secure_recv_unlocked()
 
     def resend_email_code(self) -> Dict[str, Any]:
@@ -122,13 +129,16 @@ class Client:
             self._secure_send_unlocked({"type": "RESEND_EMAIL_CODE"})
             return self._secure_recv_unlocked()
 
-    def verify_email(self, username: str, otp_code: str) -> Dict[str, Any]:
+    def verify_email(self, otp_code: str) -> Dict[str, Any]:
         """
         Server response: EMAIL_VERIFIED_OK or ERROR
         """
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked({"type": "VERIFY_EMAIL", "username": username, "otp_code": otp_code})
+            self._secure_send_unlocked({
+                "type": "VERIFY_EMAIL",
+                "otp_code": otp_code
+            })
             return self._secure_recv_unlocked()
 
     def login(self, username: str, password: str) -> Dict[str, Any]:
@@ -137,7 +147,11 @@ class Client:
         """
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked({"type": "LOGIN", "username": username, "password": password})
+            self._secure_send_unlocked({
+                "type": "LOGIN",
+                "username": username,
+                "password": password
+            })
             return self._secure_recv_unlocked()
 
     def resend_2fa_code(self) -> Dict[str, Any]:
@@ -146,13 +160,16 @@ class Client:
             self._secure_send_unlocked({"type": "RESEND_2FA_CODE"})
             return self._secure_recv_unlocked()
 
-    def verify_2fa(self, username: str, otp_code: str) -> Dict[str, Any]:
+    def verify_2fa(self, otp_code: str) -> Dict[str, Any]:
         """
         Server response: LOGIN_OK or ERROR
         """
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked({"type": "VERIFY_2FA", "username": username, "otp_code": otp_code})
+            self._secure_send_unlocked({
+                "type": "VERIFY_2FA",
+                "otp_code": otp_code
+            })
             return self._secure_recv_unlocked()
 
     # -------------------------
@@ -189,7 +206,6 @@ class Client:
                 "ext": meta["ext"],
                 "sha256": meta["sha256"],
                 "patient_id": patient_id,
-                "encrypted_stream": True
             })
 
             ready = self._secure_recv_unlocked()
@@ -219,7 +235,12 @@ class Client:
                     break
                 sha.update(chunk)
 
-        return {"request_id": req_id, "file_size": file_size, "ext": ext, "sha256": sha.hexdigest()}
+        return {
+            "request_id": req_id,
+            "file_size": file_size,
+            "ext": ext,
+            "sha256": sha.hexdigest()
+        }
 
     def _stream_encrypted_file(
         self,
