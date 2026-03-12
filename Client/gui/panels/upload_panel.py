@@ -30,7 +30,7 @@ class UploadPanel(QFrame):
         title = QLabel("Upload File")
         title.setObjectName("PanelTitle")
 
-        desc = QLabel("Add a medical scan (Image/DCM/etc).")
+        desc = QLabel("Add a medical scan (Image).")
         desc.setObjectName("HintText")
         desc.setWordWrap(True)
 
@@ -66,7 +66,7 @@ class UploadPanel(QFrame):
             self,
             "Select file",
             "",
-            "Images (*.png *.jpg *.jpeg *.bmp *.dcm);;All files (*.*)"
+            "Images (*.png *.jpg *.jpeg);;All files (*.*)"
         )
         if path:
             self._selected_path = path
