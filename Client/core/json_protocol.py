@@ -3,8 +3,9 @@ import json
 import struct
 from typing import Any, Dict, Optional
 
+
 class JsonProtocol:
-    #256KB max size
+    # 256KB max size
     def __init__(self, max_message_bytes: int = 262144):
         self.max_message_bytes = max_message_bytes
 
@@ -13,7 +14,7 @@ class JsonProtocol:
         if len(data) > self.max_message_bytes:
             raise ValueError("json message is too large")
 
-        #header purpose to define the data length
+        # header purpose to define the data length
         header = struct.pack(">I", len(data))
         sock.sendall(header + data)
 

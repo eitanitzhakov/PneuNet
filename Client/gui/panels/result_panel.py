@@ -18,13 +18,19 @@ class ResultPanel(QFrame):
 
         self.result_box = QTextEdit()
         self.result_box.setReadOnly(True)
-        self.result_box.setPlaceholderText("Results will appear here after you run analysis...")
+        self.result_box.setPlaceholderText(
+            "Results will appear here after you run analysis...")
 
         layout.addWidget(title)
         layout.addWidget(self.result_box, 1)
 
-    def display_prediction(self, pred_data: dict, patient_id: str = "", file_name: str = ""):
-        prediction = pred_data.get("prediction", {}) if isinstance(pred_data, dict) else {}
+    def display_prediction(
+            self,
+            pred_data: dict,
+            patient_id: str = "",
+            file_name: str = ""):
+        prediction = pred_data.get("prediction", {}) if isinstance(
+            pred_data, dict) else {}
 
         label = prediction.get("label", "Unknown")
 

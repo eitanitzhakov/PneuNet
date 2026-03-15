@@ -4,7 +4,13 @@ from PySide6.QtCore import Qt
 
 class OTPDialog(QDialog):
 
-    def __init__(self, title: str, subtitle: str, on_verify, on_resend, parent=None):
+    def __init__(
+            self,
+            title: str,
+            subtitle: str,
+            on_verify,
+            on_resend,
+            parent=None):
         super().__init__(parent)
 
         self.setWindowTitle(title)

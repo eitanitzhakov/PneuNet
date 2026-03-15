@@ -38,8 +38,9 @@ class Predictor:
         missing, unexpected = self.model.load_state_dict(state, strict=True)
         if missing or unexpected:
             raise RuntimeError(
-                f"State_dict mismatch. missing={len(missing)} unexpected={len(unexpected)}"
-            )
+                f"State_dict mismatch. missing={
+                    len(missing)} unexpected={
+                    len(unexpected)}")
 
         self.tf = transforms.Compose([
             transforms.Resize((img_size, img_size)),

@@ -75,7 +75,11 @@ class Server:
     def start(self) -> None:
         self.sock.bind((self.host, self.port))
         self.sock.listen(self.backlog)
-        print(f"[SERVER] Listening on {self.host}:{self.port} (max_clients={self.max_clients})")
+        print(
+            f"[SERVER] Listening on {
+                self.host}:{
+                self.port} (max_clients={
+                self.max_clients})")
 
         try:
             while not self._shutdown.is_set():
@@ -102,14 +106,16 @@ class Server:
             pass
         print("[SERVER] Stopped")
 
-    def handle_client(self, client_sock: socket.socket, addr: Tuple[str, int]) -> None:
+    def handle_client(self, client_sock: socket.socket,
+                      addr: Tuple[str, int]) -> None:
         print(f"[SERVER] Connection from {addr}")
         try:
             client_sock.settimeout(self.timeout_sec)
             with client_sock:
                 dh_server, pk_server = Cipher.get_dh_public_key()
                 pk_server_b64 = base64.b64encode(pk_server).decode("ascii")
-                self.protocol.send(client_sock, {"type": "DH_SERVER_PK", "pk": pk_server_b64})
+                self.protocol.send(
+                    client_sock, {"type": "DH_SERVER_PK", "pk": pk_server_b64})
 
                 msg = self.protocol.recv(client_sock)
                 if not msg or msg.get("type") != "DH_CLIENT_PK":
@@ -117,7 +123,8 @@ class Server:
                     return
 
                 pk_client = base64.b64decode(msg.get("pk").encode("ascii"))
-                shared_key = Cipher.get_dh_shared_key(dh_server, pk_client, lngth=32)
+                shared_key = Cipher.get_dh_shared_key(
+                    dh_server, pk_client, lngth=32)
 
                 cipher = Cipher(shared_key, NONCE)
                 secure_protocol = SecureJsonProtocol(self.protocol, cipher)
@@ -137,25 +144,23 @@ class Server:
                     if msg is None:
                         break
 
-                    (
-                        resp,
-                        should_close,
-                        current_user_id,
-                        pending_email_verify_user_id,
-                        pending_email_verify_username,
-                        pending_2fa_user_id,
-                        pending_2fa_username,
-                    ) = self.on_message(
-                        client_sock=client_sock,
-                        msg=msg,
-                        secure_protocol=secure_protocol,
-                        cipher=cipher,
-                        user_id=current_user_id,
-                        pending_email_verify_user_id=pending_email_verify_user_id,
-                        pending_email_verify_username=pending_email_verify_username,
-                        pending_2fa_user_id=pending_2fa_user_id,
-                        pending_2fa_username=pending_2fa_username,
-                    )
+                    (resp,
+                     should_close,
+                     current_user_id,
+                     pending_email_verify_user_id,
+                     pending_email_verify_username,
+                     pending_2fa_user_id,
+                     pending_2fa_username,
+                     ) = self.on_message(client_sock=client_sock,
+                                         msg=msg,
+                                         secure_protocol=secure_protocol,
+                                         cipher=cipher,
+                                         user_id=current_user_id,
+                                         pending_email_verify_user_id=pending_email_verify_user_id,
+                                         pending_email_verify_username=pending_email_verify_username,
+                                         pending_2fa_user_id=pending_2fa_user_id,
+                                         pending_2fa_username=pending_2fa_username,
+                                         )
 
                     if resp is not None:
                         secure_protocol.send(client_sock, resp)
@@ -230,10 +235,12 @@ class Server:
                     return {"type": "ERROR", "message": f"Please wait {cooldown_left}s before requesting another code."}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 otp_code = self.mailer.generate_otp_code()
-                otp_hash = self.mailer.calc_otp_hash(self.EMAIL_VERIFY_PURPOSE, username, otp_code)
+                otp_hash = self.mailer.calc_otp_hash(
+                    self.EMAIL_VERIFY_PURPOSE, username, otp_code)
                 expires_at = self.mailer.expires_at_iso(minutes=10)
 
-                if not self.db.set_otp_for_user(new_uid, self.EMAIL_VERIFY_PURPOSE, otp_hash, expires_at):
+                if not self.db.set_otp_for_user(
+                        new_uid, self.EMAIL_VERIFY_PURPOSE, otp_hash, expires_at):
                     return {"type": "ERROR", "message": "Failed to store verification OTP"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 status, resp_text = self.mailer.send_signup_verification_code(
@@ -284,7 +291,8 @@ class Server:
                     return {"type": "ERROR", "message": "Invalid email on account. Contact admin."}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 otp_code = self.mailer.generate_otp_code()
-                otp_hash = self.mailer.calc_otp_hash(self.EMAIL_VERIFY_PURPOSE, pending_email_verify_username, otp_code)
+                otp_hash = self.mailer.calc_otp_hash(
+                    self.EMAIL_VERIFY_PURPOSE, pending_email_verify_username, otp_code)
                 expires_at = self.mailer.expires_at_iso(minutes=10)
 
                 if not self.db.set_otp_for_user(
@@ -329,7 +337,8 @@ class Server:
                 if not otp_code:
                     return {"type": "ERROR", "message": "otp_code required"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
-                expected_hash = self.mailer.calc_otp_hash(self.EMAIL_VERIFY_PURPOSE, pending_email_verify_username, otp_code)
+                expected_hash = self.mailer.calc_otp_hash(
+                    self.EMAIL_VERIFY_PURPOSE, pending_email_verify_username, otp_code)
                 ok, reason = self.db.verify_otp_hash(
                     pending_email_verify_user_id,
                     self.EMAIL_VERIFY_PURPOSE,
@@ -337,11 +346,14 @@ class Server:
                     max_attempts=5
                 )
                 if not ok:
-                    return {"type": "ERROR", "message": reason}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
+                    return {
+                        "type": "ERROR", "message": reason}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 self.db.set_email_verified(pending_email_verify_user_id, 1)
-                self.db.clear_otp(pending_email_verify_user_id, self.EMAIL_VERIFY_PURPOSE)
-                self.db.clear_otp(pending_email_verify_user_id, self.LOGIN_2FA_PURPOSE)
+                self.db.clear_otp(pending_email_verify_user_id,
+                                  self.EMAIL_VERIFY_PURPOSE)
+                self.db.clear_otp(pending_email_verify_user_id,
+                                  self.LOGIN_2FA_PURPOSE)
 
                 pending_email_verify_user_id = None
                 pending_email_verify_username = ""
@@ -376,7 +388,8 @@ class Server:
                         }, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                     email = self.db.get_user_email(uid)
-                    if not email or not self.mailer.is_email_format_valid(email):
+                    if not email or not self.mailer.is_email_format_valid(
+                            email):
                         return {
                             "type": "EMAIL_VERIFICATION_REQUIRED",
                             "message": "Your email is not verified yet. The email on this account is invalid. Contact admin."
@@ -396,16 +409,14 @@ class Server:
 
                     try:
                         otp_code = self.mailer.generate_otp_code()
-                        otp_hash = self.mailer.calc_otp_hash(self.EMAIL_VERIFY_PURPOSE, username, otp_code)
+                        otp_hash = self.mailer.calc_otp_hash(
+                            self.EMAIL_VERIFY_PURPOSE, username, otp_code)
                         expires_at = self.mailer.expires_at_iso(minutes=10)
 
-                        if self.db.set_otp_for_user(uid, self.EMAIL_VERIFY_PURPOSE, otp_hash, expires_at):
+                        if self.db.set_otp_for_user(
+                                uid, self.EMAIL_VERIFY_PURPOSE, otp_hash, expires_at):
                             status, resp_text = self.mailer.send_signup_verification_code(
-                                to_email=email,
-                                otp_code=otp_code,
-                                minutes_valid=10,
-                                username_hint=username,
-                            )
+                                to_email=email, otp_code=otp_code, minutes_valid=10, username_hint=username, )
 
                             if status == 202:
                                 return {
@@ -431,7 +442,8 @@ class Server:
                         }, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 if not self.mailer:
-                    return {"type": "ERROR", "message": "2FA unavailable (email sender not configured)"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
+                    return {
+                        "type": "ERROR", "message": "2FA unavailable (email sender not configured)"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 cooldown_left = self.db.otp_resend_cooldown_remaining(
                     uid,
@@ -446,10 +458,12 @@ class Server:
                     return {"type": "ERROR", "message": "Invalid email on account. Contact admin."}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 otp_code = self.mailer.generate_otp_code()
-                otp_hash = self.mailer.calc_otp_hash(self.LOGIN_2FA_PURPOSE, username, otp_code)
+                otp_hash = self.mailer.calc_otp_hash(
+                    self.LOGIN_2FA_PURPOSE, username, otp_code)
                 expires_at = self.mailer.expires_at_iso(minutes=5)
 
-                if not self.db.set_otp_for_user(uid, self.LOGIN_2FA_PURPOSE, otp_hash, expires_at):
+                if not self.db.set_otp_for_user(
+                        uid, self.LOGIN_2FA_PURPOSE, otp_hash, expires_at):
                     return {"type": "ERROR", "message": "Failed to store OTP"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 status, resp_text = self.mailer.send_login_2fa_code(
@@ -497,7 +511,8 @@ class Server:
                     return {"type": "ERROR", "message": "Invalid email on account. Contact admin."}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 otp_code = self.mailer.generate_otp_code()
-                otp_hash = self.mailer.calc_otp_hash(self.LOGIN_2FA_PURPOSE, pending_2fa_username, otp_code)
+                otp_hash = self.mailer.calc_otp_hash(
+                    self.LOGIN_2FA_PURPOSE, pending_2fa_username, otp_code)
                 expires_at = self.mailer.expires_at_iso(minutes=5)
 
                 if not self.db.set_otp_for_user(
@@ -532,7 +547,8 @@ class Server:
         if mtype == "VERIFY_2FA":
             try:
                 if not self.mailer:
-                    return {"type": "ERROR", "message": "2FA unavailable"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
+                    return {
+                        "type": "ERROR", "message": "2FA unavailable"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 otp_code = (msg.get("otp_code") or "").strip()
 
@@ -542,7 +558,8 @@ class Server:
                 if not otp_code:
                     return {"type": "ERROR", "message": "otp_code required"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
-                expected_hash = self.mailer.calc_otp_hash(self.LOGIN_2FA_PURPOSE, pending_2fa_username, otp_code)
+                expected_hash = self.mailer.calc_otp_hash(
+                    self.LOGIN_2FA_PURPOSE, pending_2fa_username, otp_code)
                 ok, reason = self.db.verify_otp_hash(
                     pending_2fa_user_id,
                     self.LOGIN_2FA_PURPOSE,
@@ -550,7 +567,8 @@ class Server:
                     max_attempts=5
                 )
                 if not ok:
-                    return {"type": "ERROR", "message": reason}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
+                    return {
+                        "type": "ERROR", "message": reason}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
                 self.db.clear_otp(pending_2fa_user_id, self.LOGIN_2FA_PURPOSE)
                 user_id = pending_2fa_user_id
@@ -558,7 +576,8 @@ class Server:
                 pending_2fa_user_id = None
                 pending_2fa_username = ""
 
-                return {"type": "LOGIN_OK"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
+                return {
+                    "type": "LOGIN_OK"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
             except Exception as e:
                 return {"type": "ERROR", "message": f"VERIFY_2FA exception: {e}"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
@@ -582,16 +601,20 @@ class Server:
             if not request_id or file_size <= 0:
                 return {"type": "ERROR", "message": "Invalid upload parameters"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
-            secure_protocol.send(client_sock, {"type": "READY", "request_id": request_id})
+            secure_protocol.send(
+                client_sock, {"type": "READY", "request_id": request_id})
 
             save_dir = "uploads"
             os.makedirs(save_dir, exist_ok=True)
             path = os.path.join(save_dir, f"{request_id}.{ext}")
 
             try:
-                self._receive_encrypted_file(client_sock, path, file_size, cipher)
+                self._receive_encrypted_file(
+                    client_sock, path, file_size, cipher)
             except Exception as e:
-                return {"type": "ERROR", "message": f"Upload failed: {str(e)}"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
+                return {
+                    "type": "ERROR", "message": f"Upload failed: {
+                        str(e)}"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
             actual_sha = self._calc_file_hash(path)
             if expected_sha and actual_sha != expected_sha:
@@ -599,7 +622,8 @@ class Server:
                     os.remove(path)
                 except Exception:
                     pass
-                return {"type": "ERROR", "message": "Integrity check failed (SHA mismatch)"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
+                return {
+                    "type": "ERROR", "message": "Integrity check failed (SHA mismatch)"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
             if not self.db.save_new_scan(request_id, user_id, patient_id):
                 return {"type": "ERROR", "message": "DB Error saving scan"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
@@ -642,7 +666,8 @@ class Server:
                         if email and self.mailer.is_email_format_valid(email):
                             self.mailer.send_positive_result_alert(
                                 to_email=email,
-                                patient_id=str(self.db.get_patient_id_by_request_id(request_id) or "Unknown"),
+                                patient_id=str(self.db.get_patient_id_by_request_id(
+                                    request_id) or "Unknown"),
                                 confidence=conf,
                             )
                     except Exception:
@@ -686,7 +711,12 @@ class Server:
 
         return {"type": "ERROR", "message": f"Unknown command: {mtype}"}, False, user_id, pending_email_verify_user_id, pending_email_verify_username, pending_2fa_user_id, pending_2fa_username
 
-    def _receive_encrypted_file(self, sock: socket.socket, path: str, total_size: int, cipher: Cipher):
+    def _receive_encrypted_file(
+            self,
+            sock: socket.socket,
+            path: str,
+            total_size: int,
+            cipher: Cipher):
         received_bytes_original = 0
         with open(path, "wb") as f:
             while received_bytes_original < total_size:

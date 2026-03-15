@@ -25,17 +25,20 @@ class AuthWindow(ClientWindow):
 
         self.setWindowTitle("Medical Login System")
         self.resize(900, 550)
-        self.setStyleSheet("background-color: #f0f2f5; font-family: 'Segoe UI';")
+        self.setStyleSheet(
+            "background-color: #f0f2f5; font-family: 'Segoe UI';")
 
         try:
             self.client = Client(host="127.0.0.1", port=8080, timeout_sec=600)
         except Exception as e:
-            self.message_service.show_error(self, "Init Error", "Could not initialize the client.", str(e))
+            self.message_service.show_error(
+                self, "Init Error", "Could not initialize the client.", str(e))
             self.client = None
 
         self.container = QFrame(self)
         self.container.setGeometry(50, 50, 800, 450)
-        self.container.setStyleSheet("background-color: white; border-radius: 20px; border: 1px solid #ddd;")
+        self.container.setStyleSheet(
+            "background-color: white; border-radius: 20px; border: 1px solid #ddd;")
 
         self.home_window = None
 
@@ -50,7 +53,8 @@ class AuthWindow(ClientWindow):
     def setup_signup_form(self):
         self.signup_widget = QFrame(self.container)
         self.signup_widget.setGeometry(0, 0, 400, 450)
-        self.signup_widget.setStyleSheet("background-color: transparent; border: none;")
+        self.signup_widget.setStyleSheet(
+            "background-color: transparent; border: none;")
 
         layout = QVBoxLayout(self.signup_widget)
         layout.setContentsMargins(50, 50, 50, 50)
@@ -67,7 +71,8 @@ class AuthWindow(ClientWindow):
         self.reg_pass.setEchoMode(QLineEdit.EchoMode.Password)
 
         for le in [self.reg_name, self.reg_email, self.reg_pass]:
-            le.setStyleSheet("border: none; border-bottom: 2px solid #ccc; padding: 8px; font-size: 14px;")
+            le.setStyleSheet(
+                "border: none; border-bottom: 2px solid #ccc; padding: 8px; font-size: 14px;")
             layout.addWidget(le)
 
         self.pw_status = QLabel("Password strength: waiting...")
@@ -91,7 +96,8 @@ class AuthWindow(ClientWindow):
 
         btn_switch = QPushButton("Already have an account? Login")
         btn_switch.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        btn_switch.setStyleSheet("color: #666; border: none; font-weight: bold; background: transparent;")
+        btn_switch.setStyleSheet(
+            "color: #666; border: none; font-weight: bold; background: transparent;")
         btn_switch.clicked.connect(self.animate_to_login)
         layout.addWidget(btn_switch, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -99,17 +105,20 @@ class AuthWindow(ClientWindow):
         ok, msg = self.password_checker.check(text)
         if ok:
             self.pw_status.setText(msg)
-            self.pw_status.setStyleSheet("color: #16a34a; font-size: 12px; font-weight: 600;")
+            self.pw_status.setStyleSheet(
+                "color: #16a34a; font-size: 12px; font-weight: 600;")
             self.btn_signup.setEnabled(True)
         else:
             self.pw_status.setText(f"Weak password: {msg}")
-            self.pw_status.setStyleSheet("color: #dc2626; font-size: 12px; font-weight: 600;")
+            self.pw_status.setStyleSheet(
+                "color: #dc2626; font-size: 12px; font-weight: 600;")
             self.btn_signup.setEnabled(False)
 
     def setup_login_form(self):
         self.login_widget = QFrame(self.container)
         self.login_widget.setGeometry(400, 0, 400, 450)
-        self.login_widget.setStyleSheet("background-color: transparent; border: none;")
+        self.login_widget.setStyleSheet(
+            "background-color: transparent; border: none;")
 
         layout = QVBoxLayout(self.login_widget)
         layout.setContentsMargins(50, 50, 50, 50)
@@ -125,7 +134,8 @@ class AuthWindow(ClientWindow):
         self.login_pass.setEchoMode(QLineEdit.EchoMode.Password)
 
         for le in [self.login_user, self.login_pass]:
-            le.setStyleSheet("border: none; border-bottom: 2px solid #ccc; padding: 8px; font-size: 14px;")
+            le.setStyleSheet(
+                "border: none; border-bottom: 2px solid #ccc; padding: 8px; font-size: 14px;")
             layout.addWidget(le)
 
         layout.addSpacing(40)
@@ -142,7 +152,8 @@ class AuthWindow(ClientWindow):
 
         btn_switch = QPushButton("New here? Sign Up")
         btn_switch.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        btn_switch.setStyleSheet("color: #666; border: none; font-weight: bold; background: transparent;")
+        btn_switch.setStyleSheet(
+            "color: #666; border: none; font-weight: bold; background: transparent;")
         btn_switch.clicked.connect(self.animate_to_signup)
         layout.addWidget(btn_switch, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -157,7 +168,8 @@ class AuthWindow(ClientWindow):
             "font-size: 40px; font-weight: bold; color: white; background: transparent; border: none;"
         )
         lbl_desc = QLabel("Secure Medical Analysis")
-        lbl_desc.setStyleSheet("font-size: 16px; color: #eee; background: transparent; border: none;")
+        lbl_desc.setStyleSheet(
+            "font-size: 16px; color: #eee; background: transparent; border: none;")
 
         layout.addStretch()
         layout.addWidget(lbl_logo, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -218,7 +230,8 @@ class AuthWindow(ClientWindow):
         password = self.login_pass.text().strip()
 
         if not username or not password:
-            self.message_service.show_warning(self, "Error", "Please enter username and password.")
+            self.message_service.show_warning(
+                self, "Error", "Please enter username and password.")
             return
 
         self._pending_login_username = username
@@ -228,7 +241,8 @@ class AuthWindow(ClientWindow):
         self.btn_login.setText("Connecting...")
 
         self.worker = Worker(self._do_login, username, password)
-        self.worker.finished.connect(lambda resp: self.on_login_done(resp, username))
+        self.worker.finished.connect(
+            lambda resp: self.on_login_done(resp, username))
         self.worker.error.connect(self.on_auth_error)
         self.worker.start()
 
@@ -241,7 +255,8 @@ class AuthWindow(ClientWindow):
         self.btn_login.setText("LOGIN")
 
         if not isinstance(response, dict):
-            self.message_service.show_warning(self, "Login Failed", "Unexpected response from server.")
+            self.message_service.show_warning(
+                self, "Login Failed", "Unexpected response from server.")
             return
 
         if response.get("type") == "ERROR":
@@ -272,17 +287,19 @@ class AuthWindow(ClientWindow):
             if dlg.exec() == QDialog.DialogCode.Accepted:
                 self._clear_login_sensitive_fields()
                 self._reset_auth_state()
-                self.message_service.show_info(self, "Success", "Email verified! You can now login.")
+                self.message_service.show_info(
+                    self, "Success", "Email verified! You can now login.")
             return
 
         if response.get("type") == "LOGIN_2FA_REQUIRED":
             dlg = OTPDialog(
                 title="Two-Factor Verification",
                 subtitle="A verification code was sent to your email. Enter it to complete login.",
-                on_verify=lambda otp: self._verify_2fa(username, otp),
+                on_verify=lambda otp: self._verify_2fa(
+                    username,
+                    otp),
                 on_resend=lambda: self._resend_2fa(),
-                parent=self
-            )
+                parent=self)
             if dlg.exec() == QDialog.DialogCode.Accepted:
                 self._clear_login_sensitive_fields()
                 self._reset_auth_state()
@@ -299,7 +316,8 @@ class AuthWindow(ClientWindow):
             self.hide()
             return
 
-        self.message_service.show_warning(self, "Login Failed", "Unexpected response from server.")
+        self.message_service.show_warning(
+            self, "Login Failed", "Unexpected response from server.")
 
     def _verify_2fa(self, username: str, otp: str):
         resp = self.client.verify_2fa(otp)
@@ -324,7 +342,8 @@ class AuthWindow(ClientWindow):
         password = self.reg_pass.text().strip()
 
         if not name or not email or not password:
-            self.message_service.show_warning(self, "Error", "Please fill all signup fields.")
+            self.message_service.show_warning(
+                self, "Error", "Please fill all signup fields.")
             return
 
         self._pending_signup_username = name
@@ -334,7 +353,8 @@ class AuthWindow(ClientWindow):
         self.btn_signup.setText("Registering...")
 
         self.worker = Worker(self._do_signup, name, password, email)
-        self.worker.finished.connect(lambda resp: self.on_signup_done(resp, name))
+        self.worker.finished.connect(
+            lambda resp: self.on_signup_done(resp, name))
         self.worker.error.connect(self.on_auth_error)
         self.worker.start()
 
@@ -347,7 +367,8 @@ class AuthWindow(ClientWindow):
         self.btn_signup.setText("SIGN UP")
 
         if not isinstance(response, dict):
-            self.message_service.show_warning(self, "Signup Failed", "Unexpected response from server.")
+            self.message_service.show_warning(
+                self, "Signup Failed", "Unexpected response from server.")
             return
 
         if response.get("type") == "ERROR":
@@ -362,19 +383,22 @@ class AuthWindow(ClientWindow):
             dlg = OTPDialog(
                 title="Email Verification",
                 subtitle="A verification code was sent to your email. Enter it to activate your account.",
-                on_verify=lambda otp: self._verify_email(username, otp),
+                on_verify=lambda otp: self._verify_email(
+                    username,
+                    otp),
                 on_resend=lambda: self._resend_email_code(),
-                parent=self
-            )
+                parent=self)
             if dlg.exec() == QDialog.DialogCode.Accepted:
                 self.login_user.setText(username)
                 self._clear_signup_fields()
                 self._reset_auth_state()
-                self.message_service.show_info(self, "Success", "Email verified! You can now login.")
+                self.message_service.show_info(
+                    self, "Success", "Email verified! You can now login.")
                 self.animate_to_login()
             return
 
-        self.message_service.show_warning(self, "Signup Failed", "Unexpected response from server.")
+        self.message_service.show_warning(
+            self, "Signup Failed", "Unexpected response from server.")
 
     def _verify_email(self, username: str, otp: str):
         resp = self.client.verify_email(otp)

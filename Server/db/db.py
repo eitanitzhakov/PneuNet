@@ -84,14 +84,16 @@ class DB:
     # Helpers
     @staticmethod
     def _calc_password_hash(plain_password: str, salt: str) -> str:
-        return hashlib.sha256((plain_password + salt).encode("utf-8")).hexdigest()
+        return hashlib.sha256(
+            (plain_password + salt).encode("utf-8")).hexdigest()
 
     @staticmethod
     def _local_now_str() -> str:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Auth
-    def signup(self, username: str, password_plain: str, email: str) -> Tuple[bool, Optional[int]]:
+    def signup(self, username: str, password_plain: str,
+               email: str) -> Tuple[bool, Optional[int]]:
         salt = secrets.token_hex(16)
         password_hash = self._calc_password_hash(password_plain, salt)
 
@@ -129,7 +131,8 @@ class DB:
                     return None
 
                 user_id, stored_hash, stored_salt = row
-                calculated_hash = self._calc_password_hash(password_plain, stored_salt)
+                calculated_hash = self._calc_password_hash(
+                    password_plain, stored_salt)
                 return int(user_id) if calculated_hash == stored_hash else None
 
         except Exception as e:
@@ -141,7 +144,8 @@ class DB:
         try:
             with self._get_conn() as conn:
                 cur = conn.cursor()
-                cur.execute("SELECT id FROM users WHERE username = ?", (username,))
+                cur.execute(
+                    "SELECT id FROM users WHERE username = ?", (username,))
                 row = cur.fetchone()
                 return int(row[0]) if row else None
         except Exception as e:
@@ -163,7 +167,8 @@ class DB:
         try:
             with self._get_conn() as conn:
                 cur = conn.cursor()
-                cur.execute("SELECT email_verified FROM users WHERE id = ?", (user_id,))
+                cur.execute(
+                    "SELECT email_verified FROM users WHERE id = ?", (user_id,))
                 row = cur.fetchone()
                 return bool(row[0]) if row else False
         except Exception as e:
@@ -206,9 +211,15 @@ class DB:
 
         raise ValueError(f"Unsupported OTP purpose: {purpose}")
 
-    def get_otp_meta(self, user_id: int, purpose: str) -> Tuple[Optional[str], Optional[str], int, Optional[str]]:
+    def get_otp_meta(self,
+                     user_id: int,
+                     purpose: str) -> Tuple[Optional[str],
+                                            Optional[str],
+                                            int,
+                                            Optional[str]]:
         try:
-            hash_col, exp_col, attempts_col, last_sent_col = self._otp_columns(purpose)
+            hash_col, exp_col, attempts_col, last_sent_col = self._otp_columns(
+                purpose)
 
             with self._get_conn() as conn:
                 cur = conn.cursor()
@@ -231,9 +242,15 @@ class DB:
             print(f"get_otp_meta error: {e}")
             return None, None, 0, None
 
-    def set_otp_for_user(self, user_id: int, purpose: str, otp_hash: str, expires_at_iso: str) -> bool:
+    def set_otp_for_user(
+            self,
+            user_id: int,
+            purpose: str,
+            otp_hash: str,
+            expires_at_iso: str) -> bool:
         try:
-            hash_col, exp_col, attempts_col, last_sent_col = self._otp_columns(purpose)
+            hash_col, exp_col, attempts_col, last_sent_col = self._otp_columns(
+                purpose)
 
             with self._get_conn() as conn:
                 cur = conn.cursor()
@@ -246,7 +263,8 @@ class DB:
                         {last_sent_col} = ?
                     WHERE id = ?
                     """,
-                    (otp_hash, expires_at_iso, datetime.now(timezone.utc).isoformat(), user_id)
+                    (otp_hash, expires_at_iso, datetime.now(
+                        timezone.utc).isoformat(), user_id)
                 )
                 conn.commit()
                 return cur.rowcount > 0
@@ -257,7 +275,8 @@ class DB:
 
     def increment_otp_attempts(self, user_id: int, purpose: str) -> None:
         try:
-            _hash_col, _exp_col, attempts_col, _last_sent_col = self._otp_columns(purpose)
+            _hash_col, _exp_col, attempts_col, _last_sent_col = self._otp_columns(
+                purpose)
 
             with self._get_conn() as conn:
                 conn.execute(
@@ -270,7 +289,8 @@ class DB:
 
     def clear_otp(self, user_id: int, purpose: str) -> bool:
         try:
-            hash_col, exp_col, attempts_col, last_sent_col = self._otp_columns(purpose)
+            hash_col, exp_col, attempts_col, last_sent_col = self._otp_columns(
+                purpose)
 
             with self._get_conn() as conn:
                 cur = conn.cursor()
@@ -304,8 +324,14 @@ class DB:
         except Exception:
             return None
 
-    def verify_otp_hash(self, user_id: int, purpose: str, expected_hash: str, max_attempts: int = 5) -> Tuple[bool, str]:
-        otp_hash, expires_at_s, attempts, _last_sent = self.get_otp_meta(user_id, purpose)
+    def verify_otp_hash(self,
+                        user_id: int,
+                        purpose: str,
+                        expected_hash: str,
+                        max_attempts: int = 5) -> Tuple[bool,
+                                                        str]:
+        otp_hash, expires_at_s, attempts, _last_sent = self.get_otp_meta(
+            user_id, purpose)
 
         if not otp_hash or not expires_at_s:
             return False, "No active code. Please request a new code."
@@ -325,9 +351,14 @@ class DB:
 
         return True, "OK"
 
-    def otp_resend_cooldown_remaining(self, user_id: int, purpose: str, cooldown_seconds: int = 60) -> int:
+    def otp_resend_cooldown_remaining(
+            self,
+            user_id: int,
+            purpose: str,
+            cooldown_seconds: int = 60) -> int:
         try:
-            _otp_hash, _exp, _attempts, last_sent = self.get_otp_meta(user_id, purpose)
+            _otp_hash, _exp, _attempts, last_sent = self.get_otp_meta(
+                user_id, purpose)
             if not last_sent:
                 return 0
 
@@ -345,7 +376,11 @@ class DB:
             return 0
 
     # Scans
-    def save_new_scan(self, request_id: str, user_id: int, patient_id: str) -> bool:
+    def save_new_scan(
+            self,
+            request_id: str,
+            user_id: int,
+            patient_id: str) -> bool:
         uploaded_at = self._local_now_str()
 
         try:
@@ -363,7 +398,11 @@ class DB:
             print(f"Error saving scan: {e}")
             return False
 
-    def update_scan(self, request_id: str, prediction_label: str, prediction_confidence: float) -> bool:
+    def update_scan(
+            self,
+            request_id: str,
+            prediction_label: str,
+            prediction_confidence: float) -> bool:
         try:
             with self._get_conn() as conn:
                 cur = conn.cursor()

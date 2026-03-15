@@ -43,10 +43,12 @@ class Client:
 
             server_pk_bytes = base64.b64decode(msg["pk"])
             client_dh, client_pk = Cipher.get_dh_public_key()
-            shared_key = Cipher.get_dh_shared_key(client_dh, server_pk_bytes, lngth=32)
+            shared_key = Cipher.get_dh_shared_key(
+                client_dh, server_pk_bytes, lngth=32)
 
             client_pk_b64 = base64.b64encode(client_pk).decode("ascii")
-            self.proto.send(self.sock, {"type": "DH_CLIENT_PK", "pk": client_pk_b64})
+            self.proto.send(
+                self.sock, {"type": "DH_CLIENT_PK", "pk": client_pk_b64})
 
             cipher = Cipher(shared_key, NONCE)
             self.secure = SecureJsonProtocol(self.proto, cipher)
@@ -77,7 +79,8 @@ class Client:
                         except Exception as e:
                             print("Failed sending CLOSE:", e)
                     else:
-                        print("Socket exists but client is not marked as connected/secure")
+                        print(
+                            "Socket exists but client is not marked as connected/secure")
                 finally:
                     try:
                         self.sock.close()
@@ -109,7 +112,8 @@ class Client:
     # -------------------------
     # Auth flows
     # -------------------------
-    def signup(self, username: str, password: str, email: str) -> Dict[str, Any]:
+    def signup(self, username: str, password: str,
+               email: str) -> Dict[str, Any]:
         """
         Server response: SIGNUP_VERIFY_REQUIRED or ERROR
         """
@@ -184,7 +188,8 @@ class Client:
     def predict(self, request_id: str) -> Dict[str, Any]:
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked({"type": "PREDICT", "request_id": request_id})
+            self._secure_send_unlocked(
+                {"type": "PREDICT", "request_id": request_id})
             return self._secure_recv_unlocked()
 
     def upload(
@@ -211,15 +216,18 @@ class Client:
             ready = self._secure_recv_unlocked()
             if ready.get("type") == "ERROR":
                 return ready
-            if ready.get("type") != "READY" or ready.get("request_id") != meta["request_id"]:
+            if ready.get("type") != "READY" or ready.get(
+                    "request_id") != meta["request_id"]:
                 return {"type": "ERROR", "message": f"Bad READY: {ready}"}
 
-            self._stream_encrypted_file(self.sock, file_path, meta["file_size"], on_progress)
+            self._stream_encrypted_file(
+                self.sock, file_path, meta["file_size"], on_progress)
 
             resp = self._secure_recv_unlocked()
             return resp
 
-    def _prepare_upload_metadata(self, file_path: str, req_id: Optional[str]) -> Dict[str, Any]:
+    def _prepare_upload_metadata(
+            self, file_path: str, req_id: Optional[str]) -> Dict[str, Any]:
         if not os.path.exists(file_path):
             raise FileNotFoundError(file_path)
 

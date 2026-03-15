@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, Optional
 import base64
 
+
 class SecureJsonProtocol:
     def __init__(self, inner_protocol, cipher):
         self.inner = inner_protocol
@@ -14,7 +15,7 @@ class SecureJsonProtocol:
         self.inner.send(sock, {"type": "ENC", "payload": b64})
 
     def recv(self, sock) -> Optional[Dict[str, Any]]:
-        wrapper = self.inner.recv(sock) #here the real rcv from the socket!
+        wrapper = self.inner.recv(sock)  # here the real rcv from the socket!
         if wrapper is None:
             return None
 

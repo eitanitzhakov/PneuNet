@@ -1,6 +1,7 @@
 from Crypto.Cipher import AES
 from diffiehellman import DiffieHellman
 
+
 class Cipher:
     def __init__(self, key, nonce):
         self.key = key

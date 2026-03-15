@@ -32,7 +32,8 @@ class HistoryPanel(QFrame):
 
         for item_data in history_list:
             patient_id = item_data.get("patient_id") or "Unknown"
-            ts = item_data.get("uploaded_at") or item_data.get("timestamp", "") or ""
+            ts = item_data.get("uploaded_at") or item_data.get(
+                "timestamp", "") or ""
             display_text = f"{ts} | {patient_id}"
 
             item = QListWidgetItem(display_text)

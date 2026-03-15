@@ -61,7 +61,8 @@ class EmailSender:
         }
 
         try:
-            resp = requests.post(self.endpoint, json=payload, headers=headers, timeout=15)
+            resp = requests.post(self.endpoint, json=payload,
+                                 headers=headers, timeout=15)
             return resp.status_code, resp.text
         except requests.RequestException as e:
             return 0, str(e)
@@ -89,7 +90,8 @@ class EmailSender:
 
     @staticmethod
     def expires_at_iso(minutes: int = 5) -> str:
-        return (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat()
+        return (datetime.now(timezone.utc) +
+                timedelta(minutes=minutes)).isoformat()
 
     # -------------------------
     # Generic OTP mail
@@ -264,11 +266,14 @@ if __name__ == "__main__":
 
     print("Sending signup verification email...")
     otp1 = sender.generate_otp_code()
-    print(sender.send_signup_verification_code(email, otp1, minutes_valid=10, username_hint="eitantest"))
+    print(sender.send_signup_verification_code(
+        email, otp1, minutes_valid=10, username_hint="eitantest"))
 
     print("Sending login 2FA email...")
     otp2 = sender.generate_otp_code()
-    print(sender.send_login_2fa_code(email, otp2, minutes_valid=5, username_hint="eitantest"))
+    print(sender.send_login_2fa_code(email, otp2,
+          minutes_valid=5, username_hint="eitantest"))
 
     print("Sending alert email...")
-    print(sender.send_positive_result_alert(email, patient_id="TEST124", confidence=0.87))
+    print(sender.send_positive_result_alert(
+        email, patient_id="TEST124", confidence=0.87))
