@@ -486,3 +486,5 @@ class DB:
 if __name__ == "__main__":
     db = DB("db.db")
     print("DB READY (SQLite)")
+
+

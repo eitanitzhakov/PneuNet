@@ -76,6 +76,8 @@ class AuthWindow(ClientWindow):
             layout.addWidget(le)
 
         self.pw_status = QLabel("Password strength: waiting...")
+        self.pw_status.setWordWrap(True)
+        self.pw_status.setMinimumHeight(35)
         self.pw_status.setStyleSheet("color: #666; font-size: 12px;")
         layout.addWidget(self.pw_status)
         layout.addSpacing(18)
