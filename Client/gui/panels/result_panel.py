@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QTextEdit
@@ -19,18 +18,18 @@ class ResultPanel(QFrame):
         self.result_box = QTextEdit()
         self.result_box.setReadOnly(True)
         self.result_box.setPlaceholderText(
-            "Results will appear here after you run analysis...")
+            "Results will appear here after you run analysis..."
+        )
 
         layout.addWidget(title)
         layout.addWidget(self.result_box, 1)
 
     def display_prediction(
-            self,
-            pred_data: dict,
-            patient_id: str = "",
-            file_name: str = ""):
-        prediction = pred_data.get("prediction", {}) if isinstance(
-            pred_data, dict) else {}
+        self, pred_data: dict, patient_id: str = "", file_name: str = ""
+    ):
+        prediction = (
+            pred_data.get("prediction", {}) if isinstance(pred_data, dict) else {}
+        )
 
         label = prediction.get("label", "Unknown")
 
@@ -42,7 +41,9 @@ class ResultPanel(QFrame):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         latency_ms = prediction.get("latency_ms", None)
-        latency_line = f"<p><b>Latency:</b> {latency_ms} ms</p>" if latency_ms is not None else ""
+        latency_line = (
+            f"<p><b>Latency:</b> {latency_ms} ms</p>" if latency_ms is not None else ""
+        )
 
         html = f"""
             <h3 style="color: #007acc;">Analysis Complete</h3>
@@ -57,6 +58,26 @@ class ResultPanel(QFrame):
         self.result_box.setHtml(html)
 
     def display_history_item(self, data: dict):
-        filtered = dict(data)
-        pretty = json.dumps(filtered, indent=2, ensure_ascii=False)
-        self.result_box.setPlainText(pretty)
+        label = data.get("prediction_label", "Unknown")
+        confidence = data.get("prediction_confidence", "")
+        patient_id = data.get("patient_id", "")
+        uploaded_at = data.get("uploaded_at", "")
+
+        if confidence != "":
+            confidence = float(confidence) * 100.0
+            confidence_line = (
+                f"<p style='font-size: 14px;'>Confidence: <b>{confidence:.8f}%</b></p>"
+            )
+        else:
+            confidence_line = ""
+
+        html = f"""
+            <h3 style="color: #007acc;">Analysis Complete</h3>
+            <p><b>Date:</b> {uploaded_at}</p>
+            <p><b>Patient ID:</b> {patient_id}</p>
+            <hr>
+            <h2 style="color: #222;">Diagnosis: {label}</h2>
+            {confidence_line}
+        """
+
+        self.result_box.setHtml(html)

@@ -121,11 +121,13 @@ class HomeWindow(ClientWindow):
 
         brand = QLabel("PneuNet")
         brand.setStyleSheet(
-            "font-size: 18px; font-weight: 900; color: #111827; background: transparent;")
+            "font-size: 18px; font-weight: 900; color: #111827; background: transparent;"
+        )
 
         user_lbl = QLabel(f"Signed in as: {username or 'User'}")
         user_lbl.setStyleSheet(
-            "color: #6b7280; font-size: 12px; background: transparent;")
+            "color: #6b7280; font-size: 12px; background: transparent;"
+        )
 
         top_l.addWidget(brand)
         top_l.addStretch()
@@ -164,12 +166,10 @@ class HomeWindow(ClientWindow):
     def _on_history_loaded(self, resp):
         if isinstance(resp, dict) and resp.get("type") == "ERROR":
             self.history.load_items([])
-            self.result.result_box.setPlainText(
-                resp.get("message", "History error"))
+            self.result.result_box.setPlainText(resp.get("message", "History error"))
             return
 
-        if resp and isinstance(resp, dict) and resp.get(
-                "type") == "HISTORY_OK":
+        if resp and isinstance(resp, dict) and resp.get("type") == "HISTORY_OK":
             items = resp.get("history", [])
             self.history.load_items(items)
 
@@ -177,31 +177,26 @@ class HomeWindow(ClientWindow):
         self.history.load_items([])
         self.result.result_box.setPlainText("History load failed.")
         self.message_service.show_error(
-            self,
-            "History Error",
-            "Could not load analysis history.",
-            tb
+            self, "History Error", "Could not load analysis history.", tb
         )
 
     def on_run_requested(self, file_path: str, patient_id: str):
         self.upload.set_loading(True)
         self.upload.set_progress(0, 100)
-        self.result.result_box.setPlainText(
-            "Processing... Uploading and Analyzing...")
+        self.result.result_box.setPlainText("Processing... Uploading and Analyzing...")
 
-        self.analysis_worker = AnalysisWorker(
-            self.client, file_path, patient_id)
+        self.analysis_worker = AnalysisWorker(self.client, file_path, patient_id)
         self.analysis_worker.progress.connect(self.upload.set_progress)
         self.analysis_worker.finished.connect(
-            lambda res: self._on_analysis_finished(res, file_path, patient_id))
+            lambda res: self._on_analysis_finished(res, file_path, patient_id)
+        )
         self.analysis_worker.error.connect(self._on_analysis_error)
         self.analysis_worker.start()
 
     def _on_analysis_finished(self, result, file_path: str, patient_id: str):
         self.upload.set_loading(False)
         self.upload.set_progress(100, 100)
-        self.result.display_prediction(
-            result, patient_id, os.path.basename(file_path))
+        self.result.display_prediction(result, patient_id, os.path.basename(file_path))
         self.refresh_history()
 
     def _on_analysis_error(self, tb: str):
@@ -211,5 +206,5 @@ class HomeWindow(ClientWindow):
             self,
             "Analysis Failed",
             "The file could not be analyzed. Please try again.",
-            tb
+            tb,
         )

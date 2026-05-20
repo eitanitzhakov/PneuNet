@@ -1,3 +1,4 @@
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QWidget
 from ..services.message_service import MessageService
 
@@ -16,6 +17,6 @@ class ClientWindow(QWidget):
         except Exception as e:
             print("Client close error:", e)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent):
         self.close_client_connection()
         event.accept()

@@ -2,7 +2,6 @@ from zxcvbn import zxcvbn
 
 
 class PasswordStrengthChecker:
-
     def check(self, pw: str) -> tuple[bool, str]:
 
         if not pw:

@@ -15,7 +15,7 @@ class Cipher:
     def aes_decrypt(self, cipher_text):
         cipher = AES.new(self.key, AES.MODE_EAX, nonce=self.nonce)
         msg = cipher.decrypt(cipher_text)
-        return msg.decode('utf-8')
+        return msg.decode("utf-8")
 
     @staticmethod
     def get_dh_public_key():

@@ -2,7 +2,6 @@ from PySide6.QtWidgets import QMessageBox
 
 
 class MessageService:
-
     def show_info(self, parent, title: str, message: str):
         QMessageBox.information(parent, title, message)
 

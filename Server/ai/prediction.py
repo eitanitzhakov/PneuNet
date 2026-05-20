@@ -22,11 +22,11 @@ class Predictor:
         self.device = torch.device(device)
         self.threshold = float(threshold)
 
-        self.model = timm.create_model(
-            arch,
-            pretrained=False,
-            num_classes=1
-        ).to(self.device).eval()
+        self.model = (
+            timm.create_model(arch, pretrained=False, num_classes=1)
+            .to(self.device)
+            .eval()
+        )
 
         state = torch.load(weights_path, map_location=self.device)
         if isinstance(state, dict) and "state_dict" in state:
@@ -38,18 +38,21 @@ class Predictor:
         missing, unexpected = self.model.load_state_dict(state, strict=True)
         if missing or unexpected:
             raise RuntimeError(
-                f"State_dict mismatch. missing={
-                    len(missing)} unexpected={
-                    len(unexpected)}")
+                f"State_dict mismatch. missing={len(missing)} unexpected={
+                    len(unexpected)
+                }"
+            )
 
-        self.tf = transforms.Compose([
-            transforms.Resize((img_size, img_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                [0.485, 0.456, 0.406],
-                [0.229, 0.224, 0.225],
-            ),
-        ])
+        self.tf = transforms.Compose(
+            [
+                transforms.Resize((img_size, img_size)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    [0.485, 0.456, 0.406],
+                    [0.229, 0.224, 0.225],
+                ),
+            ]
+        )
 
         self.supported_exts = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 

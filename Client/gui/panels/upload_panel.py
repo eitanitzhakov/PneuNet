@@ -63,10 +63,7 @@ class UploadPanel(QFrame):
 
     def choose_file(self):
         path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select file",
-            "",
-            "Images (*.png *.jpg *.jpeg);;All files (*.*)"
+            self, "Select file", "", "Images (*.png *.jpg *.jpeg);;All files (*.*)"
         )
         if path:
             self._selected_path = path
@@ -77,19 +74,18 @@ class UploadPanel(QFrame):
 
     def run_analysis(self):
         if not self._selected_path:
-            QMessageBox.warning(self, "Missing file",
-                                "Please choose a file first.")
+            QMessageBox.warning(self, "Missing file", "Please choose a file first.")
             return
 
         patient_id, ok = QInputDialog.getText(
-            self, "Patient Identification", "Enter Patient ID Number:")
+            self, "Patient Identification", "Enter Patient ID Number:"
+        )
         if not ok:
             return
 
         patient_id = patient_id.strip()
         if not patient_id:
-            QMessageBox.warning(self, "Invalid Input",
-                                "Patient ID cannot be empty.")
+            QMessageBox.warning(self, "Invalid Input", "Patient ID cannot be empty.")
             return
 
         self.runRequested.emit(self._selected_path, patient_id)

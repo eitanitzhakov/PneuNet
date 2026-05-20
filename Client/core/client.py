@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional, Callable
 
 
 class Client:
-    CHUNK_SIZE = 65536
+    CHUNK_SIZE = 8192
 
     def __init__(self, host: str, port: int, timeout_sec: int = 600):
         self.host = host
@@ -43,12 +43,10 @@ class Client:
 
             server_pk_bytes = base64.b64decode(msg["pk"])
             client_dh, client_pk = Cipher.get_dh_public_key()
-            shared_key = Cipher.get_dh_shared_key(
-                client_dh, server_pk_bytes, lngth=32)
+            shared_key = Cipher.get_dh_shared_key(client_dh, server_pk_bytes, lngth=32)
 
             client_pk_b64 = base64.b64encode(client_pk).decode("ascii")
-            self.proto.send(
-                self.sock, {"type": "DH_CLIENT_PK", "pk": client_pk_b64})
+            self.proto.send(self.sock, {"type": "DH_CLIENT_PK", "pk": client_pk_b64})
 
             cipher = Cipher(shared_key, NONCE)
             self.secure = SecureJsonProtocol(self.proto, cipher)
@@ -80,7 +78,8 @@ class Client:
                             print("Failed sending CLOSE:", e)
                     else:
                         print(
-                            "Socket exists but client is not marked as connected/secure")
+                            "Socket exists but client is not marked as connected/secure"
+                        )
                 finally:
                     try:
                         self.sock.close()
@@ -112,19 +111,20 @@ class Client:
     # -------------------------
     # Auth flows
     # -------------------------
-    def signup(self, username: str, password: str,
-               email: str) -> Dict[str, Any]:
+    def signup(self, username: str, password: str, email: str) -> Dict[str, Any]:
         """
         Server response: SIGNUP_VERIFY_REQUIRED or ERROR
         """
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked({
-                "type": "SIGNUP",
-                "username": username,
-                "password": password,
-                "email": email
-            })
+            self._secure_send_unlocked(
+                {
+                    "type": "SIGNUP",
+                    "username": username,
+                    "password": password,
+                    "email": email,
+                }
+            )
             return self._secure_recv_unlocked()
 
     def resend_email_code(self) -> Dict[str, Any]:
@@ -139,10 +139,7 @@ class Client:
         """
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked({
-                "type": "VERIFY_EMAIL",
-                "otp_code": otp_code
-            })
+            self._secure_send_unlocked({"type": "VERIFY_EMAIL", "otp_code": otp_code})
             return self._secure_recv_unlocked()
 
     def login(self, username: str, password: str) -> Dict[str, Any]:
@@ -151,11 +148,9 @@ class Client:
         """
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked({
-                "type": "LOGIN",
-                "username": username,
-                "password": password
-            })
+            self._secure_send_unlocked(
+                {"type": "LOGIN", "username": username, "password": password}
+            )
             return self._secure_recv_unlocked()
 
     def resend_2fa_code(self) -> Dict[str, Any]:
@@ -170,10 +165,7 @@ class Client:
         """
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked({
-                "type": "VERIFY_2FA",
-                "otp_code": otp_code
-            })
+            self._secure_send_unlocked({"type": "VERIFY_2FA", "otp_code": otp_code})
             return self._secure_recv_unlocked()
 
     # -------------------------
@@ -188,8 +180,7 @@ class Client:
     def predict(self, request_id: str) -> Dict[str, Any]:
         with self._io_lock:
             self.connect_if_needed()
-            self._secure_send_unlocked(
-                {"type": "PREDICT", "request_id": request_id})
+            self._secure_send_unlocked({"type": "PREDICT", "request_id": request_id})
             return self._secure_recv_unlocked()
 
     def upload(
@@ -197,37 +188,43 @@ class Client:
         file_path: str,
         patient_id: str,
         request_id: Optional[str] = None,
-        on_progress: Optional[Callable[[int, int], None]] = None
+        on_progress: Optional[Callable[[int, int], None]] = None,
     ) -> Dict[str, Any]:
         with self._io_lock:
             self.connect_if_needed()
 
             meta = self._prepare_upload_metadata(file_path, request_id)
 
-            self._secure_send_unlocked({
-                "type": "UPLOAD",
-                "request_id": meta["request_id"],
-                "file_size": meta["file_size"],
-                "ext": meta["ext"],
-                "sha256": meta["sha256"],
-                "patient_id": patient_id,
-            })
+            self._secure_send_unlocked(
+                {
+                    "type": "UPLOAD",
+                    "request_id": meta["request_id"],
+                    "file_size": meta["file_size"],
+                    "ext": meta["ext"],
+                    "sha256": meta["sha256"],
+                    "patient_id": patient_id,
+                }
+            )
 
             ready = self._secure_recv_unlocked()
             if ready.get("type") == "ERROR":
                 return ready
-            if ready.get("type") != "READY" or ready.get(
-                    "request_id") != meta["request_id"]:
+            if (
+                ready.get("type") != "READY"
+                or ready.get("request_id") != meta["request_id"]
+            ):
                 return {"type": "ERROR", "message": f"Bad READY: {ready}"}
 
             self._stream_encrypted_file(
-                self.sock, file_path, meta["file_size"], on_progress)
+                self.sock, file_path, meta["file_size"], on_progress
+            )
 
             resp = self._secure_recv_unlocked()
             return resp
 
     def _prepare_upload_metadata(
-            self, file_path: str, req_id: Optional[str]) -> Dict[str, Any]:
+        self, file_path: str, req_id: Optional[str]
+    ) -> Dict[str, Any]:
         if not os.path.exists(file_path):
             raise FileNotFoundError(file_path)
 
@@ -247,7 +244,7 @@ class Client:
             "request_id": req_id,
             "file_size": file_size,
             "ext": ext,
-            "sha256": sha.hexdigest()
+            "sha256": sha.hexdigest(),
         }
 
     def _stream_encrypted_file(
@@ -255,7 +252,7 @@ class Client:
         sock: socket.socket,
         path: str,
         total_size: int,
-        on_progress: Optional[Callable[[int, int], None]]
+        on_progress: Optional[Callable[[int, int], None]],
     ) -> None:
         if not self.secure:
             raise RuntimeError("Secure channel not established")
