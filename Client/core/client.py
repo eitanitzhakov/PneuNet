@@ -192,6 +192,8 @@ class Client:
         if not self.secure or not self.sock:
             raise RuntimeError("Secure channel not established")
 
+        self.secure.send(self.sock, obj)
+
     def _secure_recv_unlocked(self) -> Dict[str, Any]:
         """
         Receive and decrypt a message from the secure encrypted channel.

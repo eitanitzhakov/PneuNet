@@ -157,3 +157,4 @@ class UploadPanel(QFrame):
         pct = int((sent / total) * 100)
         pct = max(0, min(100, pct))
         self.pbar.setValue(pct)
+

@@ -59,10 +59,13 @@ class EmailSender:
         Raises:
             RuntimeError: If RESEND_API_KEY or MAIL_FROM_EMAIL missing.
         """
+        from pathlib import Path
+
         if env_path:
             load_dotenv(env_path)
         else:
-            load_dotenv()
+            default_env = Path(__file__).resolve().parent / ".env"
+            load_dotenv(default_env)
 
         self.api_token = os.getenv("RESEND_API_KEY", "").strip()
         self.from_email = os.getenv("MAIL_FROM_EMAIL", "").strip()
