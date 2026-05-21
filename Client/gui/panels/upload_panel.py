@@ -15,9 +15,35 @@ from PySide6.QtGui import QCursor
 
 
 class UploadPanel(QFrame):
+    """
+    GUI panel for selecting and uploading medical image files.
+
+    Provides file selection dialog, patient ID input, and upload
+    progress tracking with visual progress bar.
+
+    Purpose:
+        Present unified interface for medical image selection and
+        analysis initiation.
+
+    Signals:
+        - runRequested(str, str): Emitted when Run Analysis clicked.
+          Carries (file_path, patient_id).
+
+    Attributes:
+        _selected_path (str): Currently selected file path.
+        pbar (QProgressBar): Upload progress indicator.
+    """
+
     runRequested = Signal(str, str)  # filepath, patient_id
 
     def __init__(self):
+        """
+        Initialize the upload panel and build its graphical components.
+
+        The constructor creates the file selection label, choose-file button,
+        run-analysis button, and upload progress bar. It also connects the
+        relevant button click events to their handler functions.
+        """
         super().__init__()
         self.setObjectName("UploadPanel")
 
@@ -62,6 +88,13 @@ class UploadPanel(QFrame):
         layout.addStretch()
 
     def choose_file(self):
+        """
+        Open a file selection dialog and store the selected image path.
+
+        If the user selects a file, the function saves its path, displays
+        the file name in the panel, enables the analysis button, and resets
+        the upload progress bar.
+        """
         path, _ = QFileDialog.getOpenFileName(
             self, "Select file", "", "Images (*.png *.jpg *.jpeg);;All files (*.*)"
         )
@@ -73,6 +106,13 @@ class UploadPanel(QFrame):
             self.pbar.setValue(0)
 
     def run_analysis(self):
+        """
+        Validate the selected file and request a patient identifier.
+
+        The function checks that a file was selected, asks the user to enter
+        a patient ID, validates that the value is not empty, and emits the
+        runRequested signal with the file path and patient ID.
+        """
         if not self._selected_path:
             QMessageBox.warning(self, "Missing file", "Please choose a file first.")
             return
@@ -91,6 +131,12 @@ class UploadPanel(QFrame):
         self.runRequested.emit(self._selected_path, patient_id)
 
     def set_loading(self, loading: bool):
+        """
+        Update the panel state during an upload or analysis process.
+
+        Args:
+            loading (bool): True while analysis is running, False when it ends.
+        """
         self.btn_run.setEnabled(not loading)
         self.btn_choose.setEnabled(not loading)
         self.pbar.setVisible(loading)
@@ -99,6 +145,13 @@ class UploadPanel(QFrame):
             self.pbar.setValue(0)
 
     def set_progress(self, sent: int, total: int):
+        """
+        Update the upload progress bar according to the number of bytes sent.
+
+        Args:
+            sent (int): Number of bytes already uploaded.
+            total (int): Total number of bytes that should be uploaded.
+        """
         if total <= 0:
             return
         pct = int((sent / total) * 100)

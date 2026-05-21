@@ -2,8 +2,37 @@ from zxcvbn import zxcvbn
 
 
 class PasswordStrengthChecker:
-    def check(self, pw: str) -> tuple[bool, str]:
+    """
+    Password strength validator using zxcvbn algorithm.
 
+    Evaluates password complexity and provides constructive feedback
+    to guide users toward stronger credentials. Uses machine learning-based
+    heuristics to detect common patterns and dictionary words.
+
+    Purpose:
+        Provide real-time password strength feedback during signup with
+        actionable improvement suggestions.
+
+    Scoring:
+        - Score < 3: Weak (rejected for signup)
+        - Score >= 3: Strong (accepted for signup)
+
+    Feedback:
+        Combines zxcvbn warnings and suggestions into single message.
+    """
+
+    def check(self, pw: str) -> tuple[bool, str]:
+        """
+        Evaluate password strength and return verdict with feedback.
+
+        Args:
+            pw (str): Password string to evaluate.
+
+        Returns:
+            Tuple[bool, str]: (is_strong, feedback_message).
+                - True: "Strong password"
+                - False: Warning/suggestions for improvement
+        """
         if not pw:
             return False, "Enter a password."
 

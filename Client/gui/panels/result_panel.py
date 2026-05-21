@@ -4,7 +4,31 @@ from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QTextEdit
 
 
 class ResultPanel(QFrame):
+    """
+    Display panel for analysis predictions and historical scan details.
+
+    Shows formatted results including diagnosis label, confidence score,
+    latency metrics, patient ID, and timestamp. Renders content as
+    styled HTML for professional appearance.
+
+    Purpose:
+        Present pneumonia prediction results and historical scan
+        information in a readable, well-formatted display.
+
+    Display modes:
+        1. Initial state: Placeholder text
+        2. Live prediction: Results from current analysis
+        3. Historical: Details from past scan records
+
+    Attributes:
+        result_box (QTextEdit): Read-only rich text display.
+    """
+
     def __init__(self):
+        """
+        Initialize result panel with read-only text display.
+        """
+
         super().__init__()
         self.setObjectName("ResultPanel")
 
@@ -27,6 +51,16 @@ class ResultPanel(QFrame):
     def display_prediction(
         self, pred_data: dict, patient_id: str = "", file_name: str = ""
     ):
+        """
+        Display results from a newly completed analysis.
+
+        Args:
+            pred_data (dict): Response from server's predict() call.
+                Expected keys: prediction (dict with label, prob/confidence,
+                latency_ms).
+            patient_id (str): Patient identifier for context.
+            file_name (str): Uploaded file name for reference.
+        """
         prediction = (
             pred_data.get("prediction", {}) if isinstance(pred_data, dict) else {}
         )
@@ -58,6 +92,14 @@ class ResultPanel(QFrame):
         self.result_box.setHtml(html)
 
     def display_history_item(self, data: dict):
+        """
+        Display details of a historical scan selected from history panel.
+
+        Args:
+            data (dict): Historical scan record from database.
+                Expected keys: prediction_label, prediction_confidence,
+                patient_id, uploaded_at.
+        """
         label = data.get("prediction_label", "Unknown")
         confidence = data.get("prediction_confidence", "")
         patient_id = data.get("patient_id", "")

@@ -19,7 +19,67 @@ from PySide6.QtGui import QCursor
 
 
 class AuthWindow(ClientWindow):
+    """
+    Authentication window providing signup and login functionality with
+    two-factor authentication (2FA) and email verification workflows.
+
+    This window implements a sliding-panel UI design with animated transitions
+    between signup and login forms. It manages complete authentication flows
+    including password strength validation, OTP verification dialogs, and
+    session state management.
+
+    Purpose:
+        Provide the primary entry point for user authentication, handling
+        account creation, credential verification, and transition to the
+        main application dashboard.
+
+    Authentication Workflows:
+        1. Signup Flow
+           - Collect username, email, password
+           - Validate password strength (zxcvbn)
+           - Submit to server
+           - Await email verification (OTP)
+           - Extract and verify OTP code
+           - Transition to login
+
+        2. Login Flow
+           - Collect username, password
+           - Verify credentials
+           - Check email verification status (if needed)
+           - Request 2FA code via email
+           - Verify OTP
+           - Transition to HomeWindow on success
+
+    UI Components:
+        - Signup panel (left): Username, email, password fields
+        - Login panel (right): Username, password fields
+        - Sliding overlay: Animated background with gradient
+        - Password strength indicator: Real-time validation feedback
+        - OTP dialogs: Reusable verification code input modals
+
+    Threading:
+        - Uses Worker threads for blocking network operations
+        - Prevents UI freezing during signup/login requests
+        - Progress feedback via button state changes
+
+    State Management:
+        - _pending_signup_username: Username awaiting email verification
+        - _pending_login_username: Username in 2FA flow
+        - _auth_flow: Current authentication stage
+        - client: Shared Client instance for network ops
+
+    Attributes:
+        client (Optional[Client]): Network client instance.
+        username (str): Currently authenticated username.
+        password_checker (PasswordStrengthChecker): Password validator.
+        home_window (Optional[HomeWindow]): Dashboard window (shown on login).
+    """
+
     def __init__(self):
+        """
+        Initialize authentication window with signup/login forms.
+        """
+
         super().__init__()
         self.password_checker = PasswordStrengthChecker()
 
@@ -28,7 +88,8 @@ class AuthWindow(ClientWindow):
         self.setStyleSheet("background-color: #f0f2f5; font-family: 'Segoe UI';")
 
         try:
-            self.client = Client(host="127.0.0.1", port=8080, timeout_sec=600)
+            host = input("Enter server IP:").strip()
+            self.client = Client(host=host, port=8080, timeout_sec=600)
         except Exception as e:
             self.message_service.show_error(
                 self, "Init Error", "Could not initialize the client.", str(e)
@@ -54,6 +115,13 @@ class AuthWindow(ClientWindow):
         self.setup_overlay()
 
     def setup_signup_form(self):
+        """
+        Build signup form panel with username, email, and password fields.
+
+        Includes password strength indicator and signup button with
+        real-time validation feedback.
+        """
+
         self.signup_widget = QFrame(self.container)
         self.signup_widget.setGeometry(0, 0, 400, 450)
         self.signup_widget.setStyleSheet("background-color: transparent; border: none;")
@@ -108,6 +176,14 @@ class AuthWindow(ClientWindow):
         layout.addWidget(btn_switch, alignment=Qt.AlignmentFlag.AlignCenter)
 
     def on_password_changed(self, text: str):
+        """
+        Handle password field changes and update strength indicator.
+
+        Args:
+            text (str): New password text.
+
+        Updates UI to show password strength and enables/disables signup button.
+        """
         ok, msg = self.password_checker.check(text)
         if ok:
             self.pw_status.setText(msg)
@@ -123,6 +199,10 @@ class AuthWindow(ClientWindow):
             self.btn_signup.setEnabled(False)
 
     def setup_login_form(self):
+        """
+        Build login form panel with username and password fields.
+        Includes login button and navigation link to signup form.
+        """
         self.login_widget = QFrame(self.container)
         self.login_widget.setGeometry(400, 0, 400, 450)
         self.login_widget.setStyleSheet("background-color: transparent; border: none;")
@@ -167,6 +247,12 @@ class AuthWindow(ClientWindow):
         layout.addWidget(btn_switch, alignment=Qt.AlignmentFlag.AlignCenter)
 
     def setup_overlay(self):
+        """
+        Create animated sliding overlay with gradient background.
+
+        Sets up smooth animation between signup and login transitions
+        with Qt property animations.
+        """
         self.overlay = QFrame(self.container)
         self.overlay.setGeometry(0, 0, 400, 450)
         self.update_overlay_style(left=True)
@@ -191,6 +277,12 @@ class AuthWindow(ClientWindow):
         self.anim.setEasingCurve(QEasingCurve.Type.InOutQuart)
 
     def update_overlay_style(self, left=True):
+        """
+        Update overlay border radius based on current position.
+
+        Args:
+            left (bool): True for left position (signup), False for right (login).
+        """
         radius = "20px 0px 0px 20px" if left else "0px 20px 20px 0px"
         self.overlay.setStyleSheet(f"""
                 QFrame {{
@@ -201,24 +293,40 @@ class AuthWindow(ClientWindow):
             """)
 
     def animate_to_signup(self):
+        """
+        Animate overlay to signup side with smooth transition.
+        """
+
         self.anim.setStartValue(QPoint(0, 0))
         self.anim.setEndValue(QPoint(400, 0))
         self.update_overlay_style(left=False)
         self.anim.start()
 
     def animate_to_login(self):
+        """
+        Animate overlay to login side with smooth transition.
+        """
         self.anim.setStartValue(QPoint(400, 0))
         self.anim.setEndValue(QPoint(0, 0))
         self.update_overlay_style(left=True)
         self.anim.start()
 
     def _ensure_connection(self):
+        """
+        Verify client is initialized and connected to server.
+
+        Raises:
+            RuntimeError: If client not initialized or connection fails.
+        """
         if not self.client:
             raise RuntimeError("Client not initialized.")
         if not self.client.is_connected:
             self.client.connect()
 
     def _clear_signup_fields(self):
+        """
+        Reset all signup form fields to empty state.
+        """
         self.reg_name.clear()
         self.reg_email.clear()
         self.reg_pass.clear()
@@ -227,15 +335,28 @@ class AuthWindow(ClientWindow):
         self.btn_signup.setEnabled(False)
 
     def _clear_login_sensitive_fields(self):
+        """
+        Clear password field for security measure.
+        """
+
         self.login_pass.clear()
 
     def _reset_auth_state(self):
+        """
+        Reset internal authentication state flags.
+        """
         self._pending_signup_username = ""
         self._pending_login_username = ""
         self._auth_flow = None
 
     # ---- Login ----
     def handle_login_click(self):
+        """
+        Process login button click with validation and loading state.
+
+        Validates input, disables button, spawns Worker thread for async
+        login attempt.
+        """
         username = self.login_user.text().strip()
         password = self.login_pass.text().strip()
 
@@ -257,10 +378,30 @@ class AuthWindow(ClientWindow):
         self.worker.start()
 
     def _do_login(self, u, p):
+        """
+        Perform login operation via client.
+
+        Args:
+            u (str): Username.
+            p (str): Password.
+
+        Returns:
+            dict: Server response with authentication result.
+        """
         self._ensure_connection()
         return self.client.login(u, p)
 
     def on_login_done(self, response, username: str):
+        """
+        Handle login response and manage subsequent flows.
+
+        Routes to email verification, 2FA dialog, or success path based
+        on server response type.
+
+        Args:
+            response (Dict[str, Any]): Server authentication response.
+            username (str): Username for context.
+        """
         self.btn_login.setEnabled(True)
         self.btn_login.setText("LOGIN")
 
@@ -330,6 +471,16 @@ class AuthWindow(ClientWindow):
         )
 
     def _verify_2fa(self, username: str, otp: str):
+        """
+        Submit 2FA code for verification.
+
+        Args:
+            username (str): Username (for logging).
+            otp (str): 6-digit OTP code.
+
+        Returns:
+            Tuple[bool, str]: (success, message).
+        """
         resp = self.client.verify_2fa(otp)
         if resp.get("type") == "LOGIN_OK":
             return True, "OK"
@@ -338,6 +489,12 @@ class AuthWindow(ClientWindow):
         return False, f"Unexpected response: {resp}"
 
     def _resend_2fa(self):
+        """
+        Request resend of 2FA code via email.
+
+        Returns:
+            Tuple[bool, str]: (success, message).
+        """
         resp = self.client.resend_2fa_code()
         if resp.get("type") == "RESEND_OK":
             return True, resp.get("message", "Code resent.")
@@ -347,6 +504,11 @@ class AuthWindow(ClientWindow):
 
     # ---- Signup ----
     def handle_signup_click(self):
+        """
+        Process signup button click with field validation and loading state.
+
+        Spawns Worker thread for async signup request.
+        """
         name = self.reg_name.text().strip()
         email = self.reg_email.text().strip()
         password = self.reg_pass.text().strip()
@@ -369,10 +531,28 @@ class AuthWindow(ClientWindow):
         self.worker.start()
 
     def _do_signup(self, u, p, e):
+        """
+        Perform signup operation via client.
+
+        Args:
+            u (str): Username.
+            p (str): Password.
+            e (str): Email.
+
+        Returns:
+            dict: Server response with registration result.
+        """
         self._ensure_connection()
         return self.client.signup(u, p, e)
 
     def on_signup_done(self, response, username: str):
+        """
+        Handle signup response and launch email verification dialog.
+
+        Args:
+            response (Dict[str, Any]): Server signup response.
+            username (str): Username for context.
+        """
         self.btn_signup.setEnabled(True)
         self.btn_signup.setText("SIGN UP")
 
@@ -411,6 +591,16 @@ class AuthWindow(ClientWindow):
         )
 
     def _verify_email(self, username: str, otp: str):
+        """
+        Submit email verification code.
+
+        Args:
+            username (str): Username (for logging).
+            otp (str): 6-digit OTP code from email.
+
+        Returns:
+            Tuple[bool, str]: (success, message).
+        """
         resp = self.client.verify_email(otp)
         if resp.get("type") == "EMAIL_VERIFIED_OK":
             return True, "OK"
@@ -419,6 +609,12 @@ class AuthWindow(ClientWindow):
         return False, f"Unexpected response: {resp}"
 
     def _resend_email_code(self):
+        """
+        Request resend of email verification code.
+
+        Returns:
+            Tuple[bool, str]: (success, message).
+        """
         resp = self.client.resend_email_code()
         if resp.get("type") == "RESEND_OK":
             return True, resp.get("message", "Code resent.")
@@ -427,6 +623,12 @@ class AuthWindow(ClientWindow):
         return False, f"Unexpected response: {resp}"
 
     def on_auth_error(self, tb: str):
+        """
+        Handle authentication errors from Worker thread.
+
+        Args:
+            tb (str): Exception traceback string.
+        """
         self.btn_login.setEnabled(True)
         self.btn_login.setText("LOGIN")
         self.btn_signup.setEnabled(True)

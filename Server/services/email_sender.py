@@ -10,12 +10,55 @@ from dotenv import load_dotenv
 
 
 class EmailSender:
+    """
+    Email service for sending OTP codes and notifications via Resend API.
+
+    Handles email delivery of authentication codes (signup verification,
+    2FA login) and positive pneumonia detection alerts. Validates email
+    formats and manages OTP generation with expiration.
+
+    Purpose:
+        Provide reliable email notification service for user
+        authentication and medical alert workflows.
+
+    Configuration:
+        - Requires RESEND_API_KEY environment variable
+        - Requires MAIL_FROM_EMAIL environment variable
+        - Optional MAIL_FROM_NAME (defaults to "PneuNet")
+
+    Email Types:
+        1. Signup verification: OTP code for email confirmation
+        2. 2FA login: OTP code for login confirmation
+        3. Positive alert: Notification of pneumonia detection
+
+    OTP Generation:
+        - 6-digit random codes
+        - Hashed with SHA-256 before storage
+        - 5-minute expiration by default
+        - Rate-limited: 60-second cooldown between resends
+
+    Attributes:
+        api_token (str): Resend API key from environment.
+        from_email (str): Sender email address.
+        from_name (str): Sender display name.
+        endpoint (str): Resend API endpoint URL.
+    """
+
     _EMAIL_RE = re.compile(
         r"^(?=.{3,254}$)(?=.{1,64}@)[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+"
         r"@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$"
     )
 
     def __init__(self, env_path: Optional[str] = None):
+        """
+        Initialize email sender by loading API credentials from environment.
+
+        Args:
+            env_path (Optional[str]): Path to .env file (None uses default).
+
+        Raises:
+            RuntimeError: If RESEND_API_KEY or MAIL_FROM_EMAIL missing.
+        """
         if env_path:
             load_dotenv(env_path)
         else:
@@ -38,6 +81,18 @@ class EmailSender:
         html: str,
         text: str = "",
     ) -> Tuple[int, str]:
+        """
+        Send a raw email request using the Resend API.
+
+        Args:
+            to_email (str): Recipient email address.
+            subject (str): Email subject line.
+            html (str): HTML email body.
+            text (str): Plain text email body.
+
+        Returns:
+            Tuple[int, str]: HTTP status code and response message.
+        """
         payload = {
             "from": f"{self.from_name} <{self.from_email}>",
             "to": [to_email],
@@ -69,6 +124,15 @@ class EmailSender:
             return 0, str(e)
 
     def is_email_format_valid(self, email: str) -> bool:
+        """
+        Validate the format of an email address.
+
+        Args:
+            email (str): Email address to validate.
+
+        Returns:
+            bool: True if the email format is valid.
+        """
         email = (email or "").strip()
 
         if not email or len(email) > 254:
@@ -78,6 +142,12 @@ class EmailSender:
 
     @staticmethod
     def generate_otp_code() -> str:
+        """
+        Generate a random 6-digit OTP code.
+
+        Returns:
+            str: Generated OTP code.
+        """
         return f"{secrets.randbelow(1_000_000):06d}"
 
     @staticmethod
@@ -86,14 +156,51 @@ class EmailSender:
         username: str,
         otp_code: str,
     ) -> str:
+        """
+        Calculate a SHA-256 hash for an OTP code.
+
+        Args:
+            purpose (str): OTP purpose type.
+            username (str): Associated username.
+            otp_code (str): OTP verification code.
+
+        Returns:
+            str: SHA-256 hexadecimal hash.
+        """
+
         raw = f"{purpose}:{username}:{otp_code}"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     @staticmethod
     def expires_at_iso(minutes: int = 5) -> str:
+        """
+        Generate an ISO formatted expiration timestamp for OTP validation.
+
+        The returned timestamp is based on the current UTC time and is
+        used to determine when an OTP code becomes invalid.
+
+        Args:
+            minutes (int): Number of minutes until expiration.
+
+        Returns:
+            str: ISO formatted expiration datetime string.
+        """
         return (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat()
 
     def _base_html_email(self, body_html: str) -> str:
+        """
+        Build the base HTML template used for all outgoing system emails.
+
+        The function wraps the provided HTML content inside a styled
+        email layout that includes system branding, formatting,
+        and footer information.
+
+        Args:
+            body_html (str): Inner HTML content of the email.
+
+        Returns:
+            str: Complete formatted HTML email template.
+        """
         return f"""
         <html>
         <body style="font-family:Arial;background:#f6f7fb;padding:30px;">
@@ -131,6 +238,25 @@ class EmailSender:
         header_title: str,
         intro_text: str,
     ) -> Tuple[int, str]:
+        """
+        Generate and send a formatted OTP verification email.
+
+        The function builds both HTML and plain-text email versions,
+        inserts the verification code into the template, and sends
+        the email through the Resend API service.
+
+        Args:
+            to_email (str): Recipient email address.
+            otp_code (str): OTP verification code.
+            minutes_valid (int): OTP expiration duration in minutes.
+            username_hint (str): Username displayed in the email.
+            subject_suffix (str): Additional subject text.
+            header_title (str): Main email title.
+            intro_text (str): Introductory email message.
+
+        Returns:
+            Tuple[int, str]: HTTP status code and API response message.
+        """
         subject = f"{self.from_name} | {subject_suffix}"
 
         account_line = (
@@ -186,9 +312,24 @@ class EmailSender:
         self,
         to_email: str,
         otp_code: str,
-        minutes_valid: int = 10,
+        minutes_valid: int = 5,
         username_hint: str = "",
     ) -> Tuple[int, str]:
+        """
+        Send an email verification code for user registration.
+
+        This function sends a formatted OTP email used to verify
+        the user's email address during the signup process.
+
+        Args:
+            to_email (str): Recipient email address.
+            otp_code (str): OTP verification code.
+            minutes_valid (int): OTP expiration time in minutes.
+            username_hint (str): Username displayed in the email.
+
+        Returns:
+            Tuple[int, str]: HTTP status code and API response message.
+        """
         return self._send_code_email(
             to_email=to_email,
             otp_code=otp_code,
@@ -208,6 +349,21 @@ class EmailSender:
         minutes_valid: int = 5,
         username_hint: str = "",
     ) -> Tuple[int, str]:
+        """
+        Send a two-factor authentication verification email.
+
+        The email contains a temporary OTP code required to complete
+        the user login authentication process.
+
+        Args:
+            to_email (str): Recipient email address.
+            otp_code (str): OTP verification code.
+            minutes_valid (int): OTP expiration time in minutes.
+            username_hint (str): Username displayed in the email.
+
+        Returns:
+            Tuple[int, str]: HTTP status code and API response message.
+        """
         return self._send_code_email(
             to_email=to_email,
             otp_code=otp_code,
@@ -227,6 +383,21 @@ class EmailSender:
         minutes_valid: int = 5,
         username_hint: str = "",
     ) -> Tuple[int, str]:
+        """
+        Send a generic verification code email.
+
+        This function acts as a wrapper around the login 2FA
+        email sending functionality.
+
+        Args:
+            to_email (str): Recipient email address.
+            otp_code (str): OTP verification code.
+            minutes_valid (int): OTP expiration time in minutes.
+            username_hint (str): Username displayed in the email.
+
+        Returns:
+            Tuple[int, str]: HTTP status code and API response message.
+        """
         return self.send_login_2fa_code(
             to_email=to_email,
             otp_code=otp_code,
@@ -240,6 +411,21 @@ class EmailSender:
         patient_id: str,
         confidence: float,
     ) -> Tuple[int, str]:
+        """
+        Send an automated alert email for a positive AI prediction result.
+
+        The email notifies the recipient that the AI model detected
+        a potentially positive clinical finding and includes the
+        patient identifier and prediction confidence score.
+
+        Args:
+            to_email (str): Recipient email address.
+            patient_id (str): Patient identifier.
+            confidence (float): AI prediction confidence score.
+
+        Returns:
+            Tuple[int, str]: HTTP status code and API response message.
+        """
         conf_pct = confidence * 100
         subject = f"{self.from_name} | Positive result detected"
 
@@ -250,7 +436,7 @@ class EmailSender:
 
         <p><b>Patient ID:</b> {patient_id}</p>
 
-        <p><b>Model confidence:</b> {conf_pct:.4f}%</p>
+        <p><b>Model confidence:</b> {conf_pct:.8f}%</p>
 
         <p>Please review this case in the application.</p>
 

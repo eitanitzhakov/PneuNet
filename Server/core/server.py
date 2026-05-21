@@ -17,6 +17,61 @@ from services.email_sender import EmailSender
 
 
 class Server:
+    """
+    Central server class for medical AI inference system.
+
+    This class implements a multi-threaded TCP server that handles
+    client connections, manages authentication workflows (signup,
+    login, email verification, 2FA), processes file uploads, runs
+    neural network inference on medical images, and maintains a
+    SQLite database of users and scan results.
+
+    Purpose:
+        Provide a production-grade backend for secure medical image
+        analysis, combining secure communications, user authentication,
+        file persistence, and AI inference.
+
+    Architecture:
+        - Networking: TCP socket server with client thread pool
+        - Security: Diffie-Hellman key exchange + AES-256 encryption
+        - Authentication: Email verification + 2FA (OTP via email)
+        - Storage: SQLite database + local file storage
+        - AI: PyTorch model for pneumonia detection
+        - Email: Resend API integration for OTP delivery
+
+    Workflow (Per Client):
+        1. Accept connection
+        2. Perform DH handshake
+        3. Handle messages in loop until client closes
+            - SIGNUP → email verification flow → EMAIL_VERIFIED
+            - LOGIN → email check → 2FA flow → LOGIN_OK
+            - UPLOAD → receive encrypted file → store + index
+            - PREDICT → run model → return results → notify if positive
+            - HISTORY → return user's scan records
+            - CLOSE → graceful shutdown
+
+    Threading Model:
+        - Main thread: Accept connections
+        - ThreadPoolExecutor: Handle individual clients (default 200 workers)
+        - Each client connection runs on its own thread
+        - _upload_lock: Serialize access to upload_index
+
+    Security Considerations:
+        - Session-based encryption: DH → AES-256
+        - OTP-based 2FA with rate limiting
+        - Password hashing: SHA-256 with per-user salt
+        - File integrity: SHA-256 verification on upload
+        - Auto-cleanup: Uploaded files deleted after inference
+
+    Attributes:
+        host (str): Bind address (typically "0.0.0.0").
+        port (int): Bind port (default 8080).
+        db (DB): SQLite database instance.
+        predictor (Predictor): PyTorch model for inference.
+        mailer (EmailSender): Email service for OTP delivery.
+        upload_index (Dict[str, str]): Maps request_id to uploaded file path.
+    """
+
     EMAIL_VERIFY_PURPOSE = "email_verify"
     LOGIN_2FA_PURPOSE = "login_2fa"
 
@@ -32,6 +87,20 @@ class Server:
         img_size: int = 380,
         device: Optional[str] = None,
     ):
+        """
+        Initialize the server with configuration and resources.
+
+        Args:
+            host (str): Bind address (default 0.0.0.0).
+            port (int): Listen port (default 8080).
+            backlog (int): Socket listen backlog (default 100).
+            timeout_sec (int): Client socket timeout in seconds (default 600).
+            max_clients (int): Max concurrent client threads (default 200).
+            weights_path (str): Path to PyTorch model weights file.
+            arch (str): Model architecture name (timm compatible).
+            img_size (int): Input image size for model (default 380).
+            device (Optional[str]): PyTorch device ('cuda', 'cpu', or None for auto).
+        """
         self.host = host
         self.port = port
         self.backlog = backlog
@@ -73,6 +142,13 @@ class Server:
         self.OTP_RESEND_COOLDOWN_SEC = 60
 
     def start(self) -> None:
+        """
+        Start the server and listen for incoming connections.
+
+        Binds to the configured host:port, enters accept loop, and
+        delegates each connection to a worker thread. Blocks until
+        interrupted (Ctrl+C).
+        """
         self.sock.bind((self.host, self.port))
         self.sock.listen(self.backlog)
         print(
@@ -91,6 +167,13 @@ class Server:
             self.stop()
 
     def stop(self) -> None:
+        """
+        Gracefully stop the server and clean up resources.
+
+        Stops accepting new connections, waits for active client
+        threads to finish, closes database, and shuts down thread
+        pool.
+        """
         self._shutdown.set()
         try:
             self.sock.close()
@@ -107,6 +190,17 @@ class Server:
         print("[SERVER] Stopped")
 
     def handle_client(self, client_sock: socket.socket, addr: Tuple[str, int]) -> None:
+        """
+        Handle a single client connection from start to close.
+
+        Performs DH handshake, enters message loop, and processes
+        each client request. Runs on a separate thread from the
+        thread pool.
+
+        Args:
+            client_sock (socket.socket): Connected client socket.
+            addr (Tuple[str, int]): Client address (host, port).
+        """
         print(f"[SERVER] Connection from {addr}")
         try:
             client_sock.settimeout(self.timeout_sec)
@@ -204,7 +298,39 @@ class Server:
         Optional[int],
         str,
     ]:
+        """
+        Process a single message from client and return response.
 
+        This is the main state machine dispatch function. Routes messages
+        to handlers based on message type and authentication state.
+
+        Message Types:
+            - PING: Keepalive
+            - SIGNUP: Register new account
+            - RESEND_EMAIL_CODE: Resend verification OTP
+            - VERIFY_EMAIL: Submit email verification code
+            - LOGIN: Authenticate (triggers 2FA)
+            - RESEND_2FA_CODE: Resend 2FA OTP
+            - VERIFY_2FA: Complete login
+            - UPLOAD: Upload medical image file
+            - PREDICT: Run AI model and return results
+            - HISTORY: Get user's past scan records
+            - CLOSE: Graceful disconnect
+
+        Args:
+            client_sock (socket.socket): Client socket.
+            msg (Dict[str, Any]): Received message object.
+            secure_protocol (SecureJsonProtocol): Encrypted protocol layer.
+            cipher (Cipher): Session cipher.
+            user_id (Optional[int]): Authenticated user ID (or None).
+            pending_email_verify_user_id (Optional[int]): Signup in progress.
+            pending_email_verify_username (str): Username for pending signup.
+            pending_2fa_user_id (Optional[int]): Login awaiting 2FA.
+            pending_2fa_username (str): Username for pending 2FA.
+
+        Returns:
+            Tuple: (response_dict, should_close_flag, updated_state...)
+        """
         mtype = str(msg.get("type", "")).upper().strip()
 
         if mtype == "PING":
@@ -301,7 +427,7 @@ class Server:
                 otp_hash = self.mailer.calc_otp_hash(
                     self.EMAIL_VERIFY_PURPOSE, username, otp_code
                 )
-                expires_at = self.mailer.expires_at_iso(minutes=10)
+                expires_at = self.mailer.expires_at_iso(minutes=5)
 
                 if not self.db.set_otp_for_user(
                     new_uid, self.EMAIL_VERIFY_PURPOSE, otp_hash, expires_at
@@ -322,7 +448,7 @@ class Server:
                 status, resp_text = self.mailer.send_signup_verification_code(
                     to_email=email,
                     otp_code=otp_code,
-                    minutes_valid=10,
+                    minutes_valid=5,
                     username_hint=username,
                 )
                 if not (200 <= status < 300):
@@ -438,7 +564,7 @@ class Server:
                 otp_hash = self.mailer.calc_otp_hash(
                     self.EMAIL_VERIFY_PURPOSE, pending_email_verify_username, otp_code
                 )
-                expires_at = self.mailer.expires_at_iso(minutes=10)
+                expires_at = self.mailer.expires_at_iso(minutes=5)
 
                 if not self.db.set_otp_for_user(
                     pending_email_verify_user_id,
@@ -459,7 +585,7 @@ class Server:
                 status, resp_text = self.mailer.send_signup_verification_code(
                     to_email=email,
                     otp_code=otp_code,
-                    minutes_valid=10,
+                    minutes_valid=5,
                     username_hint=pending_email_verify_username,
                 )
                 if not (200 <= status < 300):
@@ -683,7 +809,7 @@ class Server:
                         otp_hash = self.mailer.calc_otp_hash(
                             self.EMAIL_VERIFY_PURPOSE, username, otp_code
                         )
-                        expires_at = self.mailer.expires_at_iso(minutes=10)
+                        expires_at = self.mailer.expires_at_iso(minutes=5)
 
                         if self.db.set_otp_for_user(
                             uid, self.EMAIL_VERIFY_PURPOSE, otp_hash, expires_at
@@ -692,7 +818,7 @@ class Server:
                                 self.mailer.send_signup_verification_code(
                                     to_email=email,
                                     otp_code=otp_code,
-                                    minutes_valid=10,
+                                    minutes_valid=5,
                                     username_hint=username,
                                 )
                             )
@@ -1332,6 +1458,22 @@ class Server:
     def _receive_encrypted_file(
         self, sock: socket.socket, path: str, total_size: int, cipher: Cipher
     ):
+        """
+        Receive an encrypted file stream and save to disk.
+
+        Reads length-prefixed encrypted chunks, decrypts each using
+        the session cipher, and writes plaintext to file.
+
+        Args:
+            sock (socket.socket): Client socket.
+            path (str): File path to write to.
+            total_size (int): Expected file size in bytes.
+            cipher (Cipher): Session cipher for decryption.
+
+        Raises:
+            ConnectionError: If connection lost during transfer.
+            RuntimeError: If chunk length invalid.
+        """
         received_bytes_original = 0
         with open(path, "wb") as f:
             while received_bytes_original < total_size:
@@ -1354,6 +1496,16 @@ class Server:
 
     @staticmethod
     def _recv_exact(sock: socket.socket, n: int) -> Optional[bytes]:
+        """
+        Receive exactly n bytes, blocking until available or connection closed.
+
+        Args:
+            sock (socket.socket): Connected socket.
+            n (int): Number of bytes to receive.
+
+        Returns:
+            Optional[bytes]: Exactly n bytes, or None if connection closed.
+        """
         data = b""
         while len(data) < n:
             chunk = sock.recv(n - len(data))
@@ -1364,6 +1516,15 @@ class Server:
 
     @staticmethod
     def _calc_file_hash(path: str) -> str:
+        """
+        Compute SHA-256 hash of a file for integrity verification.
+
+        Args:
+            path (str): Path to file.
+
+        Returns:
+            str: Hexadecimal SHA-256 digest.
+        """
         sha = hashlib.sha256()
         with open(path, "rb") as f:
             while True:

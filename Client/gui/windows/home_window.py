@@ -17,7 +17,54 @@ from core.client import Client
 
 
 class HomeWindow(ClientWindow):
+    """
+    Main application dashboard for medical image upload and analysis.
+
+    Displays three-panel layout with upload interface, analysis results,
+    and scan history. Coordinates file operations, AI inference requests,
+    and history retrieval through background worker threads.
+
+    Purpose:
+        Provide unified interface for medical image analysis workflow
+        after successful authentication.
+
+    Layout:
+        - Result Panel (left, 2x width): Displays prediction results
+          and historical scan details
+        - Upload Panel (center, 1x width): File selection and analysis
+          initiation
+        - History Panel (right, 1x width): List of past scan records
+
+    Workflow:
+        1. On initialization: Load and display user's scan history
+        2. User selects image and patient ID via UploadPanel
+        3. AnalysisWorker spawned: uploads file, requests inference
+        4. Progress tracking: visual progress bar during upload
+        5. Results displayed in ResultPanel
+        6. History refreshed automatically
+        7. User can click history items to view past results
+
+    Threading:
+        - history_worker: Async history retrieval
+        - analysis_worker: Combined upload + inference workflow
+        - Both emit progress/finished/error signals
+
+    Attributes:
+        client (Client): Authenticated client instance.
+        username (str): Current user's username.
+        result (ResultPanel): Analysis result display.
+        upload (UploadPanel): File selection interface.
+        history (HistoryPanel): Scan history list.
+    """
+
     def __init__(self, client: Client, username: str = ""):
+        """
+        Initialize dashboard with authenticated client and username.
+
+        Args:
+            client (Client): Connected and authenticated Client instance.
+            username (str): Username for display header.
+        """
         super().__init__()
         self.client = client
         self.username = username
@@ -158,12 +205,24 @@ class HomeWindow(ClientWindow):
         self.refresh_history()
 
     def refresh_history(self):
+        """
+        Fetch user's scan history in background worker thread.
+
+        Spawns Worker to call client.get_history() and loads items
+        into HistoryPanel on completion.
+        """
         self.history_worker = Worker(self.client.get_history)
         self.history_worker.finished.connect(self._on_history_loaded)
         self.history_worker.error.connect(self._on_history_error)
         self.history_worker.start()
 
     def _on_history_loaded(self, resp):
+        """
+        Handle successful history retrieval response.
+
+        Args:
+            resp (Dict[str, Any]): Server history response.
+        """
         if isinstance(resp, dict) and resp.get("type") == "ERROR":
             self.history.load_items([])
             self.result.result_box.setPlainText(resp.get("message", "History error"))
@@ -174,6 +233,12 @@ class HomeWindow(ClientWindow):
             self.history.load_items(items)
 
     def _on_history_error(self, tb):
+        """
+        Handle history retrieval error with user notification.
+
+        Args:
+            tb (str): Exception traceback.
+        """
         self.history.load_items([])
         self.result.result_box.setPlainText("History load failed.")
         self.message_service.show_error(
@@ -181,6 +246,16 @@ class HomeWindow(ClientWindow):
         )
 
     def on_run_requested(self, file_path: str, patient_id: str):
+        """
+        Handle upload + analysis request from UploadPanel.
+
+        Spawns AnalysisWorker to upload file and request inference while
+        showing progress feedback.
+
+        Args:
+            file_path (str): Path to selected medical image.
+            patient_id (str): Patient identifier entered by user.
+        """
         self.upload.set_loading(True)
         self.upload.set_progress(0, 100)
         self.result.result_box.setPlainText("Processing... Uploading and Analyzing...")
@@ -194,12 +269,26 @@ class HomeWindow(ClientWindow):
         self.analysis_worker.start()
 
     def _on_analysis_finished(self, result, file_path: str, patient_id: str):
+        """
+        Handle successful analysis completion.
+
+        Args:
+            result (Dict[str, Any]): Prediction results from server.
+            file_path (str): Original file path (for display).
+            patient_id (str): Patient identifier.
+        """
         self.upload.set_loading(False)
         self.upload.set_progress(100, 100)
         self.result.display_prediction(result, patient_id, os.path.basename(file_path))
         self.refresh_history()
 
     def _on_analysis_error(self, tb: str):
+        """
+        Handle analysis error with user feedback.
+
+        Args:
+            tb (str): Exception traceback.
+        """
         self.upload.set_loading(False)
         self.result.result_box.setPlainText("Analysis failed.")
         self.message_service.show_error(

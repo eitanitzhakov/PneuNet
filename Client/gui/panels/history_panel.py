@@ -3,9 +3,33 @@ from PySide6.QtCore import Signal, Qt
 
 
 class HistoryPanel(QFrame):
+    """
+    Scrollable list panel displaying user's past medical image analyses.
+
+    Shows timestamped scan records with patient IDs. Supports item
+    selection to view detailed results in ResultPanel. Emits signal
+    when item clicked.
+
+    Purpose:
+        Provide quick access to historical scan records with visual
+        selection interface.
+
+    Signals:
+        - itemSelected(dict): Emitted when user clicks a history item,
+          carrying the full scan record.
+
+    Attributes:
+        listw (QListWidget): List of historical scans.
+        itemSelected (Signal): Emitted on item selection.
+    """
+
     itemSelected = Signal(dict)
 
     def __init__(self):
+        """
+        Initialize history panel with empty list.
+        """
+
         super().__init__()
         self.setObjectName("HistoryPanel")
 
@@ -28,6 +52,13 @@ class HistoryPanel(QFrame):
         layout.addWidget(hint)
 
     def load_items(self, history_list: list):
+        """
+        Populate list with scan history records.
+
+        Args:
+            history_list (list): List of scan dictionaries from server.
+                Each dict should contain: patient_id, uploaded_at.
+        """
         self.listw.clear()
 
         for item_data in history_list:
@@ -40,6 +71,12 @@ class HistoryPanel(QFrame):
             self.listw.addItem(item)
 
     def _on_item_clicked(self, item: QListWidgetItem):
+        """
+        Handle list item selection and emit itemSelected signal.
+
+        Args:
+            item (QListWidgetItem): Clicked list item.
+        """
         data = item.data(Qt.ItemDataRole.UserRole)
         if data:
             self.itemSelected.emit(data)

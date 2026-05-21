@@ -9,6 +9,42 @@ from torchvision import transforms
 
 
 class Predictor:
+    """
+    PyTorch-based neural network wrapper for pneumonia detection in
+    chest X-ray images.
+
+    Loads a pre-trained EfficientNet model and performs inference
+    on medical images after preprocessing. Outputs binary classification
+    (PNEUMONIA vs NORMAL) with confidence score.
+
+    Purpose:
+        Encapsulate all model loading, preprocessing, and inference
+        logic for medical image analysis in PneuNet.
+
+    Model:
+        - Architecture: EfficientNet-B4 (tf_efficientnet_b4_ns)
+        - Pretrained: Loaded from .pth weights file
+        - Output: Single logit passed through sigmoid for probability
+        - Inference Time: Typically 100-500ms on CPU/GPU
+
+    Preprocessing:
+        - Resize to (img_size, img_size)
+        - Convert to RGB (handles grayscale)
+        - ImageNet normalization (mean=[0.485, 0.456, 0.406],
+          std=[0.229, 0.224, 0.225])
+
+    Device Support:
+        - Auto-detects CUDA if available, falls back to CPU
+        - Can be forced to specific device
+
+    Attributes:
+        device (torch.device): Computation device (cuda/cpu).
+        model (nn.Module): Loaded PyTorch model.
+        threshold (float): Classification threshold (default 0.5).
+        tf (transforms.Compose): Image preprocessing pipeline.
+        supported_exts (set): Supported image formats.
+    """
+
     def __init__(
         self,
         weights_path: str,
@@ -17,6 +53,19 @@ class Predictor:
         device: Optional[str] = None,
         threshold: float = 0.5,
     ):
+        """
+        Initialize predictor by loading model weights and building pipeline.
+
+        Args:
+            weights_path (str): Path to .pth weights file.
+            arch (str): Model architecture name (timm compatible).
+            img_size (int): Input image size in pixels (default 380).
+            device (Optional[str]): 'cuda', 'cpu', or None for auto.
+            threshold (float): Classification threshold (default 0.5).
+
+        Raises:
+            RuntimeError: If weights file not found or state_dict incompatible.
+        """
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = torch.device(device)
@@ -58,6 +107,28 @@ class Predictor:
 
     @torch.no_grad()
     def predict(self, path: str) -> Dict[str, Any]:
+        """
+        Run inference on a medical image and return results.
+
+        Loads image, preprocesses, runs through model, and applies
+        sigmoid to convert logit to probability. Classification
+        determined by threshold comparison.
+
+        Args:
+            path (str): Path to image file (supported formats: .jpg,
+                .jpeg, .png, .bmp, .webp).
+
+        Returns:
+            dict: Prediction results including:
+                - prob: float (0.0 to 1.0) sigmoid probability
+                - label: str ("PNEUMONIA" or "NORMAL")
+                - threshold: float (classification threshold used)
+                - latency_ms: int (inference time in milliseconds)
+
+        Raises:
+            ValueError: If image format not supported.
+            RuntimeError: If model fails during inference.
+        """
         t0 = time.perf_counter()
 
         img = self._load_as_pil_rgb(path)
@@ -78,6 +149,21 @@ class Predictor:
         }
 
     def _load_as_pil_rgb(self, path: str) -> Image.Image:
+        """
+        Load image file and convert to RGB.
+
+        Handles grayscale images by converting to RGB. Raises error
+        for unsupported formats.
+
+        Args:
+            path (str): Path to image file.
+
+        Returns:
+            Image.Image: PIL Image in RGB mode.
+
+        Raises:
+            ValueError: If file extension not in supported_exts.
+        """
         ext = os.path.splitext(path)[1].lower()
         if ext not in self.supported_exts:
             raise ValueError(
