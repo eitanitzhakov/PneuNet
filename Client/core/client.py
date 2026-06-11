@@ -59,7 +59,7 @@ class Client:
         CHUNK_SIZE (int): Size for file I/O operations (8192 bytes).
     """
 
-    CHUNK_SIZE = 8192
+    CHUNK_SIZE = 8192 # 8KB chunk size for file uploads
 
     def __init__(self, host: str, port: int, timeout_sec: int = 600):
         """
